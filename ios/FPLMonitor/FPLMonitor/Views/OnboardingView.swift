@@ -638,7 +638,7 @@ struct SecondaryButtonStyle: ButtonStyle {
 // MARK: - Permissions Step View
 
 struct PermissionsStepView: View {
-    @StateObject private var notificationManager = NotificationManager.shared
+    @StateObject private var notificationManager = NotificationManager()
     @State private var locationPermissionGranted = false
     @State private var notificationPermissionGranted = false
     
@@ -708,7 +708,8 @@ struct PermissionsStepView: View {
         }
         
         // Check location permission
-        locationPermissionGranted = CLLocationManager.authorizationStatus() == .authorizedWhenInUse
+        let locationManager = CLLocationManager()
+        locationPermissionGranted = locationManager.authorizationStatus == .authorizedWhenInUse
     }
     
     private func requestNotificationPermission() {
@@ -725,7 +726,7 @@ struct PermissionsStepView: View {
         
         // Check permission after a short delay
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-            locationPermissionGranted = CLLocationManager.authorizationStatus() == .authorizedWhenInUse
+            locationPermissionGranted = locationManager.authorizationStatus == .authorizedWhenInUse
         }
     }
 }
