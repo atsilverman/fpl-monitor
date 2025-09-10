@@ -240,7 +240,7 @@ class FPLAPIManager: ObservableObject {
             .catch { error in
                 print("❌ FPLAPIManager: Direct FPL API also failed: \(error)")
                 // Return empty array if both backend and FPL API fail
-                return Just([]).setFailureType(to: Error.self).eraseToAnyPublisher()
+                return Just([FPLMiniLeague]()).setFailureType(to: Error.self).eraseToAnyPublisher()
             }
             .eraseToAnyPublisher()
     }
@@ -288,8 +288,8 @@ class FPLAPIManager: ObservableObject {
                                 rank: phase.rank,
                                 lastRank: phase.last_rank,
                                 total: phase.total,
-                                memberCount: phase.rank_count,
-                                percentileRank: phase.entry_percentile_rank
+                                memberCount: phase.rank_count ?? 0,
+                                percentileRank: phase.entry_percentile_rank ?? 0
                             )
                         }
                     ),
@@ -365,8 +365,8 @@ class FPLAPIManager: ObservableObject {
                                 rank: phase.rank,
                                 lastRank: phase.last_rank,
                                 total: phase.total,
-                                memberCount: phase.rank_count,
-                                percentileRank: phase.entry_percentile_rank
+                                memberCount: phase.rank_count ?? 0,
+                                percentileRank: phase.entry_percentile_rank ?? 0
                             )
                         }
                     )
