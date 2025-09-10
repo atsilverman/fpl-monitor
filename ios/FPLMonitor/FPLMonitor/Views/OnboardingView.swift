@@ -1,6 +1,5 @@
 import SwiftUI
 import UserNotifications
-import CoreLocation
 
 struct OnboardingView: View {
     @StateObject private var fplAPI = FPLAPIManager.shared
@@ -568,7 +567,6 @@ struct SecondaryButtonStyle: ButtonStyle {
 
 struct PermissionsStepView: View {
     @StateObject private var notificationManager = NotificationManager()
-    @State private var locationPermissionGranted = false
     @State private var notificationPermissionGranted = false
     
     var body: some View {
@@ -587,7 +585,7 @@ struct PermissionsStepView: View {
                     .multilineTextAlignment(.center)
             }
             
-            // Permission Cards
+            // Permission Card
             VStack(spacing: 20) {
                 PermissionCard(
                     icon: "bell.fill",
@@ -596,25 +594,17 @@ struct PermissionsStepView: View {
                     isGranted: $notificationPermissionGranted,
                     action: requestNotificationPermission
                 )
-                
-                PermissionCard(
-                    icon: "location.fill",
-                    title: "Location Access",
-                    description: "Automatically adjust notification times based on your timezone",
-                    isGranted: $locationPermissionGranted,
-                    action: requestLocationPermission
-                )
             }
             
             // Benefits
             VStack(spacing: 12) {
-                Text("Why we need these permissions:")
+                Text("Why we need notifications:")
                     .font(.headline)
                     .frame(maxWidth: .infinity, alignment: .leading)
                 
-                BenefitRow(icon: "clock.fill", text: "Notifications arrive at the right time for your timezone")
                 BenefitRow(icon: "bell.badge.fill", text: "Never miss important FPL moments")
                 BenefitRow(icon: "person.2.fill", text: "Stay updated on your mini league standings")
+                BenefitRow(icon: "chart.line.uptrend.xyaxis", text: "Track your team's performance in real-time")
             }
             .padding()
             .background(Color(.systemGray6))
@@ -625,6 +615,8 @@ struct PermissionsStepView: View {
         .padding()
         .onAppear {
             checkCurrentPermissions()
+            // Automatically request notification permission when this step appears
+            requestNotificationPermission()
         }
     }
     
@@ -635,10 +627,6 @@ struct PermissionsStepView: View {
                 notificationPermissionGranted = settings.authorizationStatus == .authorized
             }
         }
-        
-        // Check location permission
-        let locationManager = CLLocationManager()
-        locationPermissionGranted = locationManager.authorizationStatus == .authorizedWhenInUse
     }
     
     private func requestNotificationPermission() {
@@ -654,15 +642,6 @@ struct PermissionsStepView: View {
         }
     }
     
-    private func requestLocationPermission() {
-        let locationManager = CLLocationManager()
-        locationManager.requestWhenInUseAuthorization()
-        
-        // Check permission after a short delay
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-            locationPermissionGranted = locationManager.authorizationStatus == .authorizedWhenInUse
-        }
-    }
 }
 
 struct PermissionCard: View {
