@@ -1,0 +1,46 @@
+# DigitalOcean App Platform Configuration
+# FPL Mobile Monitor Service
+
+name: fpl-mobile-monitor
+services:
+- name: fpl-monitor-api
+  source_dir: /
+  github:
+    repo: your-username/fpl-monitor
+    branch: main
+  run_command: uvicorn fpl_monitor_service:app --host 0.0.0.0 --port 8080
+  environment_slug: python
+  instance_count: 1
+  instance_size_slug: basic-xxs
+  http_port: 8080
+  routes:
+  - path: /
+  envs:
+  - key: SUPABASE_URL
+    value: ${SUPABASE_URL}
+  - key: SUPABASE_ANON_KEY
+    value: ${SUPABASE_ANON_KEY}
+  - key: DATABASE_URL
+    value: ${DATABASE_URL}
+  - key: FPL_MINI_LEAGUE_ID
+    value: "814685"
+  - key: APNS_KEY_ID
+    value: ${APNS_KEY_ID}
+  - key: APNS_TEAM_ID
+    value: ${APNS_TEAM_ID}
+  - key: APNS_BUNDLE_ID
+    value: ${APNS_BUNDLE_ID}
+  health_check:
+    http_path: /
+    initial_delay_seconds: 10
+    period_seconds: 10
+    timeout_seconds: 5
+    success_threshold: 1
+    failure_threshold: 3
+
+databases:
+- name: fpl-db
+  engine: PG
+  version: "15"
+  size: db-s-1vcpu-1gb
+  num_nodes: 1

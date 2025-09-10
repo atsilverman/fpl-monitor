@@ -1,0 +1,36 @@
+# FPL Mobile Monitor Service Requirements
+# For DigitalOcean App Platform deployment
+
+# Core dependencies
+fastapi>=0.104.1
+uvicorn[standard]>=0.24.0
+pydantic>=2.5.0
+
+# Database
+psycopg2-binary>=2.9.1
+supabase>=2.0.0
+
+# HTTP requests
+requests>=2.31.0
+httpx>=0.25.0
+
+# Date/time handling
+pytz>=2023.3
+
+# WebSocket support
+websockets>=12.0
+
+# Push notifications
+PyAPNs2>=0.7.2
+
+# Environment variables
+python-dotenv>=1.0.0
+
+# Logging
+structlog>=23.2.0
+
+# Monitoring
+prometheus-client>=0.19.0
+
+# CORS support
+python-multipart>=0.0.6
