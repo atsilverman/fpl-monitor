@@ -846,6 +846,180 @@ def create_sample_notifications():
         }
     ]
 
+# ========================================
+# MANAGER AND LEAGUE ENDPOINTS
+# ========================================
+
+@app.get("/api/v1/managers/search")
+async def search_managers(query: str = "", limit: int = 20):
+    """Search for managers by name or ID"""
+    if not query:
+        return {"managers": []}
+    
+    try:
+        # Check if query is numeric (manager ID)
+        if query.isdigit():
+            manager_id = int(query)
+            # Try to fetch manager directly from FPL API
+            try:
+                response = requests.get(f"https://fantasy.premierleague.com/api/entry/{manager_id}/", timeout=10)
+                if response.status_code == 200:
+                    data = response.json()
+                    manager_data = {
+                        "id": data.get("id"),
+                        "player_name": data.get("player_name"),
+                        "player_first_name": data.get("player_first_name"),
+                        "player_last_name": data.get("player_last_name"),
+                        "player_region_name": data.get("player_region_name"),
+                        "player_region_code": data.get("player_region_code"),
+                        "summary_overall_points": data.get("summary_overall_points"),
+                        "summary_overall_rank": data.get("summary_overall_rank"),
+                        "summary_event_points": data.get("summary_event_points"),
+                        "summary_event_rank": data.get("summary_event_rank"),
+                        "joined_time": data.get("joined_time"),
+                        "started_event": data.get("started_event"),
+                        "favourite_team": data.get("favourite_team")
+                    }
+                    return {"managers": [manager_data]}
+            except Exception as e:
+                print(f"❌ Error fetching manager {manager_id}: {e}")
+        
+        # Search by name in database (if we have stored manager data)
+        if monitoring_service.db.pg_conn:
+            cursor = monitoring_service.db.pg_conn.cursor()
+            cursor.execute("""
+                SELECT fpl_id, player_name, player_first_name, player_last_name,
+                       player_region_name, summary_overall_points, summary_overall_rank,
+                       summary_event_points, summary_event_rank, joined_time, started_event,
+                       favourite_team
+                FROM managers 
+                WHERE LOWER(player_name) LIKE LOWER(%s) 
+                   OR LOWER(player_first_name) LIKE LOWER(%s)
+                   OR LOWER(player_last_name) LIKE LOWER(%s)
+                ORDER BY summary_overall_points DESC
+                LIMIT %s
+            """, (f"%{query}%", f"%{query}%", f"%{query}%", limit))
+            
+            results = cursor.fetchall()
+            managers = []
+            for row in results:
+                managers.append({
+                    "id": row[0],
+                    "player_name": row[1],
+                    "player_first_name": row[2],
+                    "player_last_name": row[3],
+                    "player_region_name": row[4],
+                    "summary_overall_points": row[5],
+                    "summary_overall_rank": row[6],
+                    "summary_event_points": row[7],
+                    "summary_event_rank": row[8],
+                    "joined_time": row[9],
+                    "started_event": row[10],
+                    "favourite_team": row[11]
+                })
+            
+            return {"managers": managers}
+        else:
+            return {"managers": []}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/v1/managers/{manager_id}")
+async def get_manager_details(manager_id: int):
+    """Get detailed manager information"""
+    try:
+        response = requests.get(f"https://fantasy.premierleague.com/api/entry/{manager_id}/", timeout=10)
+        if response.status_code == 200:
+            data = response.json()
+            return {
+                "id": data.get("id"),
+                "player_name": data.get("player_name"),
+                "player_first_name": data.get("player_first_name"),
+                "player_last_name": data.get("player_last_name"),
+                "player_region_name": data.get("player_region_name"),
+                "player_region_code": data.get("player_region_code"),
+                "summary_overall_points": data.get("summary_overall_points"),
+                "summary_overall_rank": data.get("summary_overall_rank"),
+                "summary_event_points": data.get("summary_event_points"),
+                "summary_event_rank": data.get("summary_event_rank"),
+                "joined_time": data.get("joined_time"),
+                "started_event": data.get("started_event"),
+                "favourite_team": data.get("favourite_team")
+            }
+        else:
+            raise HTTPException(status_code=404, detail="Manager not found")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/v1/managers/{manager_id}/leagues")
+async def get_manager_leagues(manager_id: int):
+    """Get leagues for a specific manager"""
+    try:
+        response = requests.get(f"https://fantasy.premierleague.com/api/entry/{manager_id}/", timeout=10)
+        if response.status_code == 200:
+            data = response.json()
+            return {
+                "classic": data.get("leagues", {}).get("classic", []),
+                "h2h": data.get("leagues", {}).get("h2h", [])
+            }
+        else:
+            raise HTTPException(status_code=404, detail="Manager not found")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/v1/leagues/search")
+async def search_leagues(query: str = "", limit: int = 20):
+    """Search for leagues by name"""
+    if not query:
+        return {"leagues": []}
+    
+    try:
+        if monitoring_service.db.pg_conn:
+            cursor = monitoring_service.db.pg_conn.cursor()
+            cursor.execute("""
+                SELECT id, name, short_name, created, closed, max_entries,
+                       league_type, scoring, admin_entry, start_event
+                FROM mini_leagues 
+                WHERE LOWER(name) LIKE LOWER(%s) 
+                   OR LOWER(short_name) LIKE LOWER(%s)
+                ORDER BY created DESC
+                LIMIT %s
+            """, (f"%{query}%", f"%{query}%", limit))
+            
+            results = cursor.fetchall()
+            leagues = []
+            for row in results:
+                leagues.append({
+                    "id": row[0],
+                    "name": row[1],
+                    "short_name": row[2],
+                    "created": row[3],
+                    "closed": row[4],
+                    "max_entries": row[5],
+                    "league_type": row[6],
+                    "scoring": row[7],
+                    "admin_entry": row[8],
+                    "start_event": row[9]
+                })
+            
+            return {"leagues": leagues}
+        else:
+            return {"leagues": []}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/v1/leagues/{league_id}")
+async def get_league_details(league_id: int):
+    """Get detailed league information and standings"""
+    try:
+        response = requests.get(f"https://fantasy.premierleague.com/api/leagues-classic/{league_id}/standings/", timeout=10)
+        if response.status_code == 200:
+            return response.json()
+        else:
+            raise HTTPException(status_code=404, detail="League not found")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
     """WebSocket endpoint for real-time updates"""
