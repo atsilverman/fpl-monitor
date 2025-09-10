@@ -5,7 +5,7 @@ class FPLAPIManager: ObservableObject {
     static let shared = FPLAPIManager()
     
     private let fplBaseURL = "https://fantasy.premierleague.com/api"
-    private let backendBaseURL = "http://138.68.28.59:8000/api/v1" // Production server URL
+    private let backendBaseURL = "http://192.168.4.135:8000/api/v1" // Local server URL for testing
     var cancellables = Set<AnyCancellable>()
     
     @Published var isLoading = false
@@ -46,7 +46,7 @@ class FPLAPIManager: ObservableObject {
                         id: managerData.id,
                         playerFirstName: managerData.player_first_name ?? "",
                         playerLastName: managerData.player_last_name ?? "",
-                        playerName: managerData.player_name ?? "",
+                        playerName: managerData.player_name ?? "\(managerData.player_first_name ?? "") \(managerData.player_last_name ?? "")".trimmingCharacters(in: .whitespaces),
                         playerRegionName: managerData.player_region_name ?? "",
                         playerRegionCode: managerData.player_region_code ?? "",
                         summaryOverallPoints: managerData.summary_overall_points ?? 0,
@@ -151,8 +151,8 @@ class FPLAPIManager: ObservableObject {
                             rank: phase.rank,
                             lastRank: phase.last_rank,
                             total: phase.total,
-                            memberCount: phase.rank_count,
-                            percentileRank: phase.entry_percentile_rank
+                            memberCount: phase.rank_count ?? 0,
+                            percentileRank: phase.entry_percentile_rank ?? 0
                         )
                     }
                     
@@ -236,6 +236,11 @@ class FPLAPIManager: ObservableObject {
                         currentPhase: league.currentPhase
                     )
                 } ?? []
+            }
+            .catch { error in
+                print("❌ FPLAPIManager: Direct FPL API also failed: \(error)")
+                // Return empty array if both backend and FPL API fail
+                return Just([]).setFailureType(to: Error.self).eraseToAnyPublisher()
             }
             .eraseToAnyPublisher()
     }
@@ -543,8 +548,8 @@ struct ActivePhase: Codable {
     let rank_sort: Int
     let total: Int
     let league_id: Int
-    let rank_count: Int
-    let entry_percentile_rank: Int
+    let rank_count: Int?
+    let entry_percentile_rank: Int?
 }
 
 struct LeagueDetailsResponse: Codable {
