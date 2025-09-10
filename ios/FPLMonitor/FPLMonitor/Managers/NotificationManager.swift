@@ -52,8 +52,14 @@ class NotificationManager: NSObject, ObservableObject {
     
     private func sendDeviceTokenToBackend(_ token: String) {
         // Send device token to backend for push notifications
-        // This would typically make an API call to register the device
-        print("Sending device token to backend: \(token)")
+        apiManager.registerDeviceToken(token) { result in
+            switch result {
+            case .success:
+                print("Device token registered successfully")
+            case .failure(let error):
+                print("Failed to register device token: \(error)")
+            }
+        }
     }
     
     // MARK: - User Preferences

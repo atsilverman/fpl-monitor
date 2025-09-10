@@ -246,28 +246,248 @@ struct ToggleRow: View {
     }
 }
 
-// MARK: - Placeholder Views
+// MARK: - User Preferences View
 struct UserPreferencesView: View {
+    @EnvironmentObject private var notificationManager: NotificationManager
+    @EnvironmentObject private var apiManager: APIManager
+    @State private var isLoading = false
+    @State private var showingAlert = false
+    @State private var alertMessage = ""
+    
     var body: some View {
-        Text("User Preferences")
-            .navigationTitle("User Preferences")
-            .navigationBarTitleDisplayMode(.inline)
+        Form {
+            // FPL Manager ID Section
+            Section("FPL Manager") {
+                HStack {
+                    Text("Manager ID")
+                    Spacer()
+                    TextField("Enter your FPL Manager ID", value: $notificationManager.userPreferences.fplManagerId, format: .number)
+                        .keyboardType(.numberPad)
+                        .textFieldStyle(RoundedBorderTextFieldStyle())
+                        .frame(width: 120)
+                }
+                
+                HStack {
+                    Text("Mini Leagues")
+                    Spacer()
+                    TextField("Enter league IDs (comma separated)", text: $notificationManager.userPreferences.miniLeagueIds)
+                        .textFieldStyle(RoundedBorderTextFieldStyle())
+                        .frame(width: 200)
+                }
+            }
+            
+            // Notification Frequency Section
+            Section("Notification Frequency") {
+                Picker("Frequency", selection: $notificationManager.userPreferences.frequency) {
+                    Text("Immediate").tag("immediate")
+                    Text("Every 5 minutes").tag("5min")
+                    Text("Every 15 minutes").tag("15min")
+                    Text("Every hour").tag("hourly")
+                    Text("Daily digest").tag("daily")
+                }
+                .pickerStyle(MenuPickerStyle())
+            }
+            
+            // Timezone Section
+            Section("Timezone") {
+                HStack {
+                    Text("Current Timezone")
+                    Spacer()
+                    Text(notificationManager.userPreferences.timezone)
+                        .foregroundColor(.secondary)
+                }
+            }
+            
+            // Save Button
+            Section {
+                Button("Save Preferences") {
+                    savePreferences()
+                }
+                .frame(maxWidth: .infinity)
+                .disabled(isLoading)
+            }
+        }
+        .navigationTitle("User Preferences")
+        .navigationBarTitleDisplayMode(.inline)
+        .alert("Preferences", isPresented: $showingAlert) {
+            Button("OK") { }
+        } message: {
+            Text(alertMessage)
+        }
+        .onAppear {
+            loadPreferences()
+        }
+    }
+    
+    private func loadPreferences() {
+        isLoading = true
+        apiManager.fetchUserPreferences { result in
+            DispatchQueue.main.async {
+                isLoading = false
+                switch result {
+                case .success(let preferences):
+                    notificationManager.userPreferences = preferences
+                case .failure(let error):
+                    alertMessage = "Failed to load preferences: \(error.localizedDescription)"
+                    showingAlert = true
+                }
+            }
+        }
+    }
+    
+    private func savePreferences() {
+        isLoading = true
+        apiManager.saveUserPreferences(notificationManager.userPreferences) { result in
+            DispatchQueue.main.async {
+                isLoading = false
+                switch result {
+                case .success:
+                    alertMessage = "Preferences saved successfully!"
+                    showingAlert = true
+                case .failure(let error):
+                    alertMessage = "Failed to save preferences: \(error.localizedDescription)"
+                    showingAlert = true
+                }
+            }
+        }
     }
 }
 
 struct NotificationFiltersView: View {
+    @EnvironmentObject private var notificationManager: NotificationManager
+    @State private var showingAlert = false
+    @State private var alertMessage = ""
+    
     var body: some View {
-        Text("Notification Filters")
-            .navigationTitle("Notification Filters")
-            .navigationBarTitleDisplayMode(.inline)
+        Form {
+            Section("Notification Types") {
+                ForEach(NotificationType.allCases, id: \.self) { type in
+                    ToggleRow(
+                        icon: type.emoji,
+                        title: type.displayName,
+                        subtitle: "Receive notifications for \(type.rawValue)",
+                        isOn: Binding(
+                            get: { notificationManager.userPreferences.notificationTypes[type.rawValue] ?? true },
+                            set: { notificationManager.userPreferences.notificationTypes[type.rawValue] = $0 }
+                        )
+                    )
+                }
+            }
+            
+            Section("Impact Level Filtering") {
+                ToggleRow(
+                    icon: "exclamationmark.triangle.fill",
+                    title: "High Impact Only",
+                    subtitle: "Only show high and critical impact notifications",
+                    isOn: Binding(
+                        get: { notificationManager.userPreferences.notificationTypes["high_impact_only"] ?? false },
+                        set: { notificationManager.userPreferences.notificationTypes["high_impact_only"] = $0 }
+                    )
+                )
+            }
+            
+            Section {
+                Button("Save Filters") {
+                    saveFilters()
+                }
+                .frame(maxWidth: .infinity)
+            }
+        }
+        .navigationTitle("Notification Filters")
+        .navigationBarTitleDisplayMode(.inline)
+        .alert("Filters", isPresented: $showingAlert) {
+            Button("OK") { }
+        } message: {
+            Text(alertMessage)
+        }
+    }
+    
+    private func saveFilters() {
+        // Save to UserDefaults
+        if let data = try? JSONEncoder().encode(notificationManager.userPreferences) {
+            UserDefaults.standard.set(data, forKey: "userPreferences")
+            alertMessage = "Filters saved successfully!"
+            showingAlert = true
+        } else {
+            alertMessage = "Failed to save filters"
+            showingAlert = true
+        }
     }
 }
 
 struct QuietHoursView: View {
+    @EnvironmentObject private var notificationManager: NotificationManager
+    @State private var showingAlert = false
+    @State private var alertMessage = ""
+    
     var body: some View {
-        Text("Quiet Hours")
-            .navigationTitle("Quiet Hours")
-            .navigationBarTitleDisplayMode(.inline)
+        Form {
+            Section("Quiet Hours Settings") {
+                ToggleRow(
+                    icon: "moon.fill",
+                    title: "Enable Quiet Hours",
+                    subtitle: "Disable notifications during specified hours",
+                    isOn: $notificationManager.userPreferences.quietHoursEnabled
+                )
+            }
+            
+            if notificationManager.userPreferences.quietHoursEnabled {
+                Section("Time Settings") {
+                    DatePicker(
+                        "Start Time",
+                        selection: $notificationManager.userPreferences.quietHoursStart,
+                        displayedComponents: .hourAndMinute
+                    )
+                    
+                    DatePicker(
+                        "End Time",
+                        selection: $notificationManager.userPreferences.quietHoursEnd,
+                        displayedComponents: .hourAndMinute
+                    )
+                }
+                
+                Section("Preview") {
+                    HStack {
+                        Text("Quiet Period")
+                        Spacer()
+                        Text("\(formatTime(notificationManager.userPreferences.quietHoursStart)) - \(formatTime(notificationManager.userPreferences.quietHoursEnd))")
+                            .foregroundColor(.secondary)
+                    }
+                }
+            }
+            
+            Section {
+                Button("Save Settings") {
+                    saveQuietHours()
+                }
+                .frame(maxWidth: .infinity)
+            }
+        }
+        .navigationTitle("Quiet Hours")
+        .navigationBarTitleDisplayMode(.inline)
+        .alert("Quiet Hours", isPresented: $showingAlert) {
+            Button("OK") { }
+        } message: {
+            Text(alertMessage)
+        }
+    }
+    
+    private func formatTime(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.timeStyle = .short
+        return formatter.string(from: date)
+    }
+    
+    private func saveQuietHours() {
+        // Save to UserDefaults
+        if let data = try? JSONEncoder().encode(notificationManager.userPreferences) {
+            UserDefaults.standard.set(data, forKey: "userPreferences")
+            alertMessage = "Quiet hours saved successfully!"
+            showingAlert = true
+        } else {
+            alertMessage = "Failed to save quiet hours"
+            showingAlert = true
+        }
     }
 }
 

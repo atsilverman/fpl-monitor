@@ -48,10 +48,19 @@ class AnalyticsManager: ObservableObject {
     func fetchAnalyticsData(timeRange: AnalyticsTimeRange = .week) {
         isLoading = true
         
-        // Simulate API call - in real app this would call the backend
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
-            self.analyticsData = self.generateSampleData()
-            self.isLoading = false
+        // Call backend API for real analytics data
+        apiManager.fetchAnalyticsData(timeRange: timeRange) { result in
+            DispatchQueue.main.async {
+                self.isLoading = false
+                switch result {
+                case .success(let data):
+                    self.analyticsData = data
+                case .failure(let error):
+                    print("Failed to fetch analytics: \(error)")
+                    // Fallback to sample data
+                    self.analyticsData = self.generateSampleData()
+                }
+            }
         }
     }
     

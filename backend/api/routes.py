@@ -92,3 +92,57 @@ async def get_players(
         return {"players": players}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/device-tokens")
+async def register_device_token(device_data: dict):
+    """Register device token for push notifications"""
+    try:
+        device_token = device_data.get("device_token")
+        platform = device_data.get("platform", "ios")
+        
+        # Store device token in database
+        await fpl_service.register_device_token(device_token, platform)
+        return {"status": "success", "message": "Device token registered"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/user-preferences")
+async def get_user_preferences():
+    """Get user preferences"""
+    try:
+        preferences = await fpl_service.get_user_preferences()
+        return preferences
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/user-preferences")
+async def save_user_preferences(preferences: dict):
+    """Save user preferences"""
+    try:
+        await fpl_service.save_user_preferences(preferences)
+        return {"status": "success", "message": "Preferences saved"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/analytics/events")
+async def track_analytics_event(event_data: dict):
+    """Track analytics event"""
+    try:
+        await fpl_service.track_analytics_event(event_data)
+        return {"status": "success", "message": "Event tracked"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/analytics/data")
+async def get_analytics_data(time_range: str = "week"):
+    """Get analytics data for specified time range"""
+    try:
+        analytics_data = await fpl_service.get_analytics_data(time_range)
+        return analytics_data
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
