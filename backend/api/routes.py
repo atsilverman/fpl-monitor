@@ -146,3 +146,79 @@ async def get_analytics_data(time_range: str = "week"):
         return analytics_data
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+# ========================================
+# MANAGER AND LEAGUE SEARCH ENDPOINTS
+# ========================================
+
+@router.get("/managers/search")
+async def search_managers(query: str = "", limit: int = 20):
+    """Search for managers by name or ID"""
+    if not query:
+        return {"managers": []}
+    
+    try:
+        # Check if query is numeric (manager ID)
+        if query.isdigit():
+            manager_id = int(query)
+            # Try to fetch manager directly from FPL API
+            try:
+                manager_data = await fpl_service.get_manager_data(manager_id)
+                if manager_data:
+                    return {"managers": [manager_data]}
+            except Exception:
+                pass
+        
+        # Search by name in database
+        managers = await fpl_service.search_managers_by_name(query, limit)
+        return {"managers": managers}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/managers/{manager_id}")
+async def get_manager_details(manager_id: int):
+    """Get detailed manager information"""
+    try:
+        manager_data = await fpl_service.get_manager_data(manager_id)
+        if not manager_data:
+            raise HTTPException(status_code=404, detail="Manager not found")
+        return manager_data
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/managers/{manager_id}/leagues")
+async def get_manager_leagues(manager_id: int):
+    """Get leagues for a specific manager"""
+    try:
+        leagues_data = await fpl_service.get_manager_leagues(manager_id)
+        return leagues_data
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/leagues/search")
+async def search_leagues(query: str = "", limit: int = 20):
+    """Search for leagues by name"""
+    if not query:
+        return {"leagues": []}
+    
+    try:
+        leagues = await fpl_service.search_leagues_by_name(query, limit)
+        return {"leagues": leagues}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/leagues/{league_id}")
+async def get_league_details(league_id: int):
+    """Get detailed league information and standings"""
+    try:
+        league_data = await fpl_service.get_league_details(league_id)
+        if not league_data:
+            raise HTTPException(status_code=404, detail="League not found")
+        return league_data
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))

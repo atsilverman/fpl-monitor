@@ -5,7 +5,7 @@ class FPLAPIManager: ObservableObject {
     static let shared = FPLAPIManager()
     
     private let fplBaseURL = "https://fantasy.premierleague.com/api"
-    private let backendBaseURL = "http://localhost:8000/api/v1" // Test server URL
+    private let backendBaseURL = "http://138.68.28.59:8000/api/v1" // Production server URL
     var cancellables = Set<AnyCancellable>()
     
     @Published var isLoading = false

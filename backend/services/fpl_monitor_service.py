@@ -345,6 +345,87 @@ class FPLMonitoringService:
         """Remove WebSocket connection"""
         self.websocket_connections.discard(websocket)
 
+    # ========================================
+    # MANAGER AND LEAGUE METHODS
+    # ========================================
+    
+    async def get_manager_data(self, manager_id: int) -> Optional[Dict[str, Any]]:
+        """Get manager data by ID"""
+        try:
+            # Try to get from FPL API first
+            response = requests.get(f"https://fantasy.premierleague.com/api/entry/{manager_id}/")
+            if response.status_code == 200:
+                data = response.json()
+                return {
+                    "id": data.get("id"),
+                    "player_name": data.get("player_name"),
+                    "player_first_name": data.get("player_first_name"),
+                    "player_last_name": data.get("player_last_name"),
+                    "player_region_name": data.get("player_region_name"),
+                    "player_region_code": data.get("player_region_code"),
+                    "summary_overall_points": data.get("summary_overall_points"),
+                    "summary_overall_rank": data.get("summary_overall_rank"),
+                    "summary_event_points": data.get("summary_event_points"),
+                    "summary_event_rank": data.get("summary_event_rank"),
+                    "joined_time": data.get("joined_time"),
+                    "started_event": data.get("started_event"),
+                    "favourite_team": data.get("favourite_team")
+                }
+            return None
+        except Exception as e:
+            print(f"❌ Error getting manager data for ID {manager_id}: {e}")
+            return None
+    
+    async def search_managers_by_name(self, query: str, limit: int = 20) -> List[Dict[str, Any]]:
+        """Search managers by name in database"""
+        try:
+            if not self.supabase:
+                return []
+            
+            result = self.supabase.table("managers").select("*").ilike("player_name", f"%{query}%").limit(limit).execute()
+            return result.data
+        except Exception as e:
+            print(f"❌ Error searching managers: {e}")
+            return []
+    
+    async def get_manager_leagues(self, manager_id: int) -> Dict[str, Any]:
+        """Get leagues for a specific manager"""
+        try:
+            response = requests.get(f"https://fantasy.premierleague.com/api/entry/{manager_id}/")
+            if response.status_code == 200:
+                data = response.json()
+                return {
+                    "classic": data.get("leagues", {}).get("classic", []),
+                    "h2h": data.get("leagues", {}).get("h2h", [])
+                }
+            return {"classic": [], "h2h": []}
+        except Exception as e:
+            print(f"❌ Error getting manager leagues for ID {manager_id}: {e}")
+            return {"classic": [], "h2h": []}
+    
+    async def search_leagues_by_name(self, query: str, limit: int = 20) -> List[Dict[str, Any]]:
+        """Search leagues by name in database"""
+        try:
+            if not self.supabase:
+                return []
+            
+            result = self.supabase.table("mini_leagues").select("*").ilike("name", f"%{query}%").limit(limit).execute()
+            return result.data
+        except Exception as e:
+            print(f"❌ Error searching leagues: {e}")
+            return []
+    
+    async def get_league_details(self, league_id: int) -> Optional[Dict[str, Any]]:
+        """Get league details and standings"""
+        try:
+            response = requests.get(f"https://fantasy.premierleague.com/api/leagues-classic/{league_id}/standings/")
+            if response.status_code == 200:
+                return response.json()
+            return None
+        except Exception as e:
+            print(f"❌ Error getting league details for ID {league_id}: {e}")
+            return None
+
 # ========================================
 # FASTAPI APPLICATION
 # ========================================
