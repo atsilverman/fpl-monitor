@@ -713,9 +713,14 @@ struct PermissionsStepView: View {
     }
     
     private func requestNotificationPermission() {
-        notificationManager.requestNotificationPermission { granted in
-            DispatchQueue.main.async {
-                notificationPermissionGranted = granted
+        notificationManager.requestNotificationPermission()
+        
+        // Check permission status after a short delay
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+            UNUserNotificationCenter.current().getNotificationSettings { settings in
+                DispatchQueue.main.async {
+                    notificationPermissionGranted = settings.authorizationStatus == .authorized
+                }
             }
         }
     }
