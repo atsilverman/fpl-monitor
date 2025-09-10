@@ -33,11 +33,15 @@ class FPLAPIManager: ObservableObject {
                 .eraseToAnyPublisher()
         }
         
+        print("🌐 FPLAPIManager: Searching for manager with query: \(query)")
+        print("🌐 FPLAPIManager: URL: \(url)")
+        
         return URLSession.shared.dataTaskPublisher(for: url)
             .map(\.data)
             .decode(type: ManagerSearchResponse.self, decoder: JSONDecoder())
             .map { response in
-                response.managers.map { managerData in
+                print("🌐 FPLAPIManager: Received \(response.managers.count) managers from backend")
+                return response.managers.map { managerData in
                     FPLManager(
                         id: managerData.id,
                         playerFirstName: managerData.player_first_name ?? "",
@@ -56,12 +60,25 @@ class FPLAPIManager: ObservableObject {
                     )
                 }
             }
+            .catch { error in
+                print("❌ FPLAPIManager: Backend search failed: \(error)")
+                print("🔄 FPLAPIManager: Falling back to direct FPL API...")
+                
+                // Fallback to direct FPL API if backend fails
+                if type == .id, let managerID = Int(query) {
+                    return self.fetchManagerByID(managerID)
+                } else {
+                    // For name search, return empty results
+                    return Just([]).setFailureType(to: Error.self).eraseToAnyPublisher()
+                }
+            }
             .receive(on: DispatchQueue.main)
             .handleEvents(
                 receiveCompletion: { completion in
                     self.isLoading = false
                     if case .failure(let error) = completion {
                         self.errorMessage = error.localizedDescription
+                        print("❌ FPLAPIManager: Search failed: \(error)")
                     }
                 }
             )
@@ -164,15 +181,62 @@ class FPLAPIManager: ObservableObject {
                     )
                 }
             }
+            .catch { error in
+                print("❌ FPLAPIManager: Backend leagues failed: \(error)")
+                print("🔄 FPLAPIManager: Falling back to direct FPL API...")
+                
+                // Fallback to direct FPL API
+                return self.fetchLeaguesFromFPL(managerID: managerID)
+            }
             .receive(on: DispatchQueue.main)
             .handleEvents(
                 receiveCompletion: { completion in
                     self.isLoading = false
                     if case .failure(let error) = completion {
                         self.errorMessage = error.localizedDescription
+                        print("❌ FPLAPIManager: Leagues failed: \(error)")
                     }
                 }
             )
+            .eraseToAnyPublisher()
+    }
+    
+    private func fetchLeaguesFromFPL(managerID: Int) -> AnyPublisher<[FPLMiniLeague], Error> {
+        guard let url = URL(string: "\(fplBaseURL)/entry/\(managerID)/") else {
+            return Fail(error: APIError.invalidURL).eraseToAnyPublisher()
+        }
+        
+        return URLSession.shared.dataTaskPublisher(for: url)
+            .map(\.data)
+            .decode(type: FPLManagerResponse.self, decoder: JSONDecoder())
+            .map { managerData in
+                // Extract leagues from the manager data
+                return managerData.leagues?.classic?.map { league in
+                    FPLMiniLeague(
+                        id: league.id,
+                        name: league.name,
+                        shortName: league.shortName,
+                        created: league.created,
+                        closed: league.closed,
+                        rank: league.rank,
+                        maxEntries: league.maxEntries,
+                        leagueType: league.leagueType,
+                        scoring: league.scoring,
+                        adminEntry: league.adminEntry,
+                        startEvent: league.startEvent,
+                        entryCanLeave: league.entryCanLeave,
+                        entryCanAdmin: league.entryCanAdmin,
+                        entryCanInvite: league.entryCanInvite,
+                        entryCanInviteAdmin: league.entryCanInviteAdmin,
+                        entryRank: league.entryRank,
+                        entryLastRank: league.entryLastRank,
+                        entryCanName: league.entryCanName,
+                        memberCount: league.memberCount,
+                        percentileRank: league.percentileRank,
+                        currentPhase: league.currentPhase
+                    )
+                } ?? []
+            }
             .eraseToAnyPublisher()
     }
     
