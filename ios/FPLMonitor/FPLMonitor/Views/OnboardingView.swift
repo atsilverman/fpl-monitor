@@ -1,4 +1,6 @@
 import SwiftUI
+import UserNotifications
+import CoreLocation
 
 struct OnboardingView: View {
     @StateObject private var fplAPI = FPLAPIManager.shared
@@ -11,7 +13,7 @@ struct OnboardingView: View {
     @State private var searchResults: [FPLManager] = []
     @State private var miniLeagues: [FPLMiniLeague] = []
     
-    let totalSteps = 3
+    let totalSteps = 4
     
     // MARK: - Helper Functions
     
@@ -70,6 +72,10 @@ struct OnboardingView: View {
                     selectedLeague: $selectedLeague
                 )
                 .tag(2)
+                
+                // Step 4: Permissions
+                PermissionsStepView()
+                .tag(3)
             }
             .tabViewStyle(PageTabViewStyle(indexDisplayMode: .never))
             
@@ -104,7 +110,8 @@ struct OnboardingView: View {
         switch currentStep {
         case 0: return "Get Started"
         case 1: return selectedManager != nil ? "Continue" : "Skip"
-        case 2: return "Complete Setup"
+        case 2: return "Continue"
+        case 3: return "Complete Setup"
         default: return "Next"
         }
     }
@@ -113,7 +120,8 @@ struct OnboardingView: View {
         switch currentStep {
         case 0: return true
         case 1: return true // Can skip manager selection
-        case 2: return selectedLeague != nil
+        case 2: return true // Can skip league selection
+        case 3: return true // Permissions step
         default: return false
         }
     }
@@ -623,6 +631,176 @@ struct SecondaryButtonStyle: ButtonStyle {
             .frame(maxWidth: .infinity)
             .background(Color.fplPrimary.opacity(0.1))
             .cornerRadius(12)
+            .scaleEffect(configuration.isPressed ? 0.95 : 1.0)
+    }
+}
+
+// MARK: - Permissions Step View
+
+struct PermissionsStepView: View {
+    @StateObject private var notificationManager = NotificationManager.shared
+    @State private var locationPermissionGranted = false
+    @State private var notificationPermissionGranted = false
+    
+    var body: some View {
+        VStack(spacing: 30) {
+            Spacer()
+            
+            // Header
+            VStack(spacing: 16) {
+                Text("Enable Notifications")
+                    .font(.largeTitle)
+                    .fontWeight(.bold)
+                
+                Text("Get instant alerts for goals, assists, and more")
+                    .font(.title3)
+                    .foregroundColor(.secondary)
+                    .multilineTextAlignment(.center)
+            }
+            
+            // Permission Cards
+            VStack(spacing: 20) {
+                PermissionCard(
+                    icon: "bell.fill",
+                    title: "Push Notifications",
+                    description: "Get instant alerts when your players score, assist, or keep clean sheets",
+                    isGranted: $notificationPermissionGranted,
+                    action: requestNotificationPermission
+                )
+                
+                PermissionCard(
+                    icon: "location.fill",
+                    title: "Location Access",
+                    description: "Automatically adjust notification times based on your timezone",
+                    isGranted: $locationPermissionGranted,
+                    action: requestLocationPermission
+                )
+            }
+            
+            // Benefits
+            VStack(spacing: 12) {
+                Text("Why we need these permissions:")
+                    .font(.headline)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                
+                BenefitRow(icon: "clock.fill", text: "Notifications arrive at the right time for your timezone")
+                BenefitRow(icon: "bell.badge.fill", text: "Never miss important FPL moments")
+                BenefitRow(icon: "person.2.fill", text: "Stay updated on your mini league standings")
+            }
+            .padding()
+            .background(Color(.systemGray6))
+            .cornerRadius(12)
+            
+            Spacer()
+        }
+        .padding()
+        .onAppear {
+            checkCurrentPermissions()
+        }
+    }
+    
+    private func checkCurrentPermissions() {
+        // Check notification permission
+        UNUserNotificationCenter.current().getNotificationSettings { settings in
+            DispatchQueue.main.async {
+                notificationPermissionGranted = settings.authorizationStatus == .authorized
+            }
+        }
+        
+        // Check location permission
+        locationPermissionGranted = CLLocationManager.authorizationStatus() == .authorizedWhenInUse
+    }
+    
+    private func requestNotificationPermission() {
+        notificationManager.requestNotificationPermission { granted in
+            DispatchQueue.main.async {
+                notificationPermissionGranted = granted
+            }
+        }
+    }
+    
+    private func requestLocationPermission() {
+        let locationManager = CLLocationManager()
+        locationManager.requestWhenInUseAuthorization()
+        
+        // Check permission after a short delay
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+            locationPermissionGranted = CLLocationManager.authorizationStatus() == .authorizedWhenInUse
+        }
+    }
+}
+
+struct PermissionCard: View {
+    let icon: String
+    let title: String
+    let description: String
+    @Binding var isGranted: Bool
+    let action: () -> Void
+    
+    var body: some View {
+        HStack(spacing: 16) {
+            Image(systemName: icon)
+                .font(.title2)
+                .foregroundColor(isGranted ? .green : .fplPrimary)
+                .frame(width: 30)
+            
+            VStack(alignment: .leading, spacing: 4) {
+                Text(title)
+                    .font(.headline)
+                
+                Text(description)
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
+            }
+            
+            Spacer()
+            
+            if isGranted {
+                Image(systemName: "checkmark.circle.fill")
+                    .foregroundColor(.green)
+                    .font(.title2)
+            } else {
+                Button("Allow") {
+                    action()
+                }
+                .buttonStyle(PermissionButtonStyle())
+            }
+        }
+        .padding()
+        .background(isGranted ? Color.green.opacity(0.1) : Color(.systemGray6))
+        .cornerRadius(12)
+    }
+}
+
+struct BenefitRow: View {
+    let icon: String
+    let text: String
+    
+    var body: some View {
+        HStack(spacing: 12) {
+            Image(systemName: icon)
+                .foregroundColor(.fplPrimary)
+                .frame(width: 20)
+            
+            Text(text)
+                .font(.subheadline)
+                .foregroundColor(.secondary)
+            
+            Spacer()
+        }
+    }
+}
+
+struct PermissionButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(.subheadline)
+            .fontWeight(.medium)
+            .foregroundColor(.white)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 8)
+            .background(Color.fplPrimary)
+            .cornerRadius(8)
             .scaleEffect(configuration.isPressed ? 0.95 : 1.0)
     }
 }
