@@ -1,5 +1,4 @@
 import SwiftUI
-import UserNotifications
 
 struct OnboardingView: View {
     @StateObject private var fplAPI = FPLAPIManager.shared
@@ -12,7 +11,7 @@ struct OnboardingView: View {
     @State private var searchResults: [FPLManager] = []
     @State private var miniLeagues: [FPLMiniLeague] = []
     
-    let totalSteps = 4
+    let totalSteps = 3
     
     // MARK: - Helper Functions
     
@@ -71,10 +70,6 @@ struct OnboardingView: View {
                     selectedLeague: $selectedLeague
                 )
                 .tag(2)
-                
-                // Step 4: Permissions
-                PermissionsStepView()
-                .tag(3)
             }
             .tabViewStyle(PageTabViewStyle(indexDisplayMode: .never))
             
@@ -109,8 +104,7 @@ struct OnboardingView: View {
         switch currentStep {
         case 0: return "Get Started"
         case 1: return selectedManager != nil ? "Continue" : "Skip"
-        case 2: return "Continue"
-        case 3: return "Complete Setup"
+        case 2: return "Complete Setup"
         default: return "Next"
         }
     }
@@ -120,7 +114,6 @@ struct OnboardingView: View {
         case 0: return true
         case 1: return true // Can skip manager selection
         case 2: return true // Can skip league selection
-        case 3: return true // Permissions step
         default: return false
         }
     }
@@ -193,7 +186,6 @@ struct ManagerSearchStepView: View {
     @Binding var selectedManager: FPLManager?
     let onManagerSelected: () -> Void
     
-    @State private var searchType: SearchType = .name
     
     var body: some View {
         VStack(spacing: 20) {
@@ -208,21 +200,15 @@ struct ManagerSearchStepView: View {
                     .multilineTextAlignment(.center)
             }
             
-            // Search Type Picker
-            Picker("Search Type", selection: $searchType) {
-                Text("By Name").tag(SearchType.name)
-                Text("By ID").tag(SearchType.id)
-            }
-            .pickerStyle(SegmentedPickerStyle())
             
             // Search Field
             HStack {
                 Image(systemName: "magnifyingglass")
                     .foregroundColor(.secondary)
                 
-                TextField(searchType == .name ? "Enter manager name" : "Enter manager ID", text: $searchQuery)
+                TextField("Enter manager ID", text: $searchQuery)
                     .textFieldStyle(PlainTextFieldStyle())
-                    .keyboardType(searchType == .id ? .numberPad : .default)
+                    .keyboardType(.numberPad)
                     .onChange(of: searchQuery) { _, newValue in
                         performSearch()
                     }
@@ -277,11 +263,7 @@ struct ManagerSearchStepView: View {
             return
         }
         
-        let publisher = searchType == .name ? 
-            fplAPI.searchManager(byName: searchQuery) :
-            fplAPI.searchManager(byID: Int(searchQuery) ?? 0)
-        
-        publisher
+        fplAPI.searchManager(byID: Int(searchQuery) ?? 0)
             .receive(on: DispatchQueue.main)
             .sink(
                 receiveCompletion: { _ in },
@@ -563,161 +545,6 @@ struct SecondaryButtonStyle: ButtonStyle {
     }
 }
 
-// MARK: - Permissions Step View
-
-struct PermissionsStepView: View {
-    @StateObject private var notificationManager = NotificationManager()
-    @State private var notificationPermissionGranted = false
-    
-    var body: some View {
-        VStack(spacing: 30) {
-            Spacer()
-            
-            // Header
-            VStack(spacing: 16) {
-                Text("Enable Notifications")
-                    .font(.largeTitle)
-                    .fontWeight(.bold)
-                
-                Text("Get instant alerts for goals, assists, and more")
-                    .font(.title3)
-                    .foregroundColor(.secondary)
-                    .multilineTextAlignment(.center)
-            }
-            
-            // Permission Card
-            VStack(spacing: 20) {
-                PermissionCard(
-                    icon: "bell.fill",
-                    title: "Push Notifications",
-                    description: "Get instant alerts when your players score, assist, or keep clean sheets",
-                    isGranted: $notificationPermissionGranted,
-                    action: requestNotificationPermission
-                )
-            }
-            
-            // Benefits
-            VStack(spacing: 12) {
-                Text("Why we need notifications:")
-                    .font(.headline)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                
-                BenefitRow(icon: "bell.badge.fill", text: "Never miss important FPL moments")
-                BenefitRow(icon: "person.2.fill", text: "Stay updated on your mini league standings")
-                BenefitRow(icon: "chart.line.uptrend.xyaxis", text: "Track your team's performance in real-time")
-            }
-            .padding()
-            .background(Color(.systemGray6))
-            .cornerRadius(12)
-            
-            Spacer()
-        }
-        .padding()
-        .onAppear {
-            checkCurrentPermissions()
-            // Automatically request notification permission when this step appears
-            requestNotificationPermission()
-        }
-    }
-    
-    private func checkCurrentPermissions() {
-        // Check notification permission
-        UNUserNotificationCenter.current().getNotificationSettings { settings in
-            DispatchQueue.main.async {
-                notificationPermissionGranted = settings.authorizationStatus == .authorized
-            }
-        }
-    }
-    
-    private func requestNotificationPermission() {
-        notificationManager.requestNotificationPermission()
-        
-        // Check permission status after a short delay
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
-            UNUserNotificationCenter.current().getNotificationSettings { settings in
-                DispatchQueue.main.async {
-                    notificationPermissionGranted = settings.authorizationStatus == .authorized
-                }
-            }
-        }
-    }
-    
-}
-
-struct PermissionCard: View {
-    let icon: String
-    let title: String
-    let description: String
-    @Binding var isGranted: Bool
-    let action: () -> Void
-    
-    var body: some View {
-        HStack(spacing: 16) {
-            Image(systemName: icon)
-                .font(.title2)
-                .foregroundColor(isGranted ? .green : .fplPrimary)
-                .frame(width: 30)
-            
-            VStack(alignment: .leading, spacing: 4) {
-                Text(title)
-                    .font(.headline)
-                
-                Text(description)
-                    .font(.subheadline)
-                    .foregroundColor(.secondary)
-            }
-            
-            Spacer()
-            
-            if isGranted {
-                Image(systemName: "checkmark.circle.fill")
-                    .foregroundColor(.green)
-                    .font(.title2)
-            } else {
-                Button("Allow") {
-                    action()
-                }
-                .buttonStyle(PermissionButtonStyle())
-            }
-        }
-        .padding()
-        .background(isGranted ? Color.green.opacity(0.1) : Color(.systemGray6))
-        .cornerRadius(12)
-    }
-}
-
-struct BenefitRow: View {
-    let icon: String
-    let text: String
-    
-    var body: some View {
-        HStack(spacing: 12) {
-            Image(systemName: icon)
-                .foregroundColor(.fplPrimary)
-                .frame(width: 20)
-            
-            Text(text)
-                .font(.subheadline)
-                .foregroundColor(.secondary)
-            
-            Spacer()
-        }
-    }
-}
-
-struct PermissionButtonStyle: ButtonStyle {
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .font(.subheadline)
-            .fontWeight(.medium)
-            .foregroundColor(.white)
-            .padding(.horizontal, 16)
-            .padding(.vertical, 8)
-            .background(Color.fplPrimary)
-            .cornerRadius(8)
-            .scaleEffect(configuration.isPressed ? 0.95 : 1.0)
-    }
-}
 
 #Preview {
     OnboardingView()
