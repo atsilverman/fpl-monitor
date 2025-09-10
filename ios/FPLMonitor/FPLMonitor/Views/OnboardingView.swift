@@ -301,16 +301,11 @@ struct LeagueSelectionStepView: View {
     @Binding var miniLeagues: [FPLMiniLeague]
     @Binding var selectedLeague: FPLMiniLeague?
     
-    @State private var searchQuery = ""
-    @State private var searchResults: [FPLMiniLeague] = []
-    @State private var isSearching = false
     
     var body: some View {
         VStack(spacing: 20) {
             headerSection
-            searchSection
             managerInfoSection
-            searchResultsSection
             leaguesSection
             Spacer()
         }
@@ -335,31 +330,6 @@ struct LeagueSelectionStepView: View {
         }
     }
     
-    private var searchSection: some View {
-        VStack(spacing: 12) {
-            Text("Search for Leagues")
-                .font(.headline)
-                .frame(maxWidth: .infinity, alignment: .leading)
-            
-            HStack {
-                Image(systemName: "magnifyingglass")
-                    .foregroundColor(.secondary)
-                
-                TextField("Enter league name", text: $searchQuery)
-                    .textFieldStyle(PlainTextFieldStyle())
-                    .onChange(of: searchQuery) { _, newValue in
-                        if !newValue.isEmpty {
-                            performLeagueSearch()
-                        } else {
-                            searchResults = []
-                        }
-                    }
-            }
-            .padding()
-            .background(Color(.systemGray6))
-            .cornerRadius(12)
-        }
-    }
     
     @ViewBuilder
     private var managerInfoSection: some View {
@@ -379,30 +349,6 @@ struct LeagueSelectionStepView: View {
         }
     }
     
-    @ViewBuilder
-    private var searchResultsSection: some View {
-        if !searchResults.isEmpty {
-            VStack(spacing: 12) {
-                Text("Search Results")
-                    .font(.headline)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                
-                ScrollView {
-                    LazyVStack(spacing: 8) {
-                        ForEach(searchResults) { league in
-                            OnboardingLeagueRow(
-                                league: league,
-                                isSelected: selectedLeague?.id == league.id
-                            ) {
-                                selectedLeague = league
-                            }
-                        }
-                    }
-                }
-                .frame(maxHeight: 200)
-            }
-        }
-    }
     
     private var leaguesSection: some View {
         VStack(spacing: 12) {
@@ -461,23 +407,6 @@ struct LeagueSelectionStepView: View {
         }
     }
     
-    
-    private func performLeagueSearch() {
-        guard !searchQuery.isEmpty else {
-            searchResults = []
-            return
-        }
-        
-        fplAPI.searchLeagues(query: searchQuery)
-            .receive(on: DispatchQueue.main)
-            .sink(
-                receiveCompletion: { _ in },
-                receiveValue: { results in
-                    searchResults = results
-                }
-            )
-            .store(in: &fplAPI.cancellables)
-    }
 }
 
 // MARK: - Row Views
