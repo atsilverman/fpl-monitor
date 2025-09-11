@@ -238,7 +238,7 @@ class FPLMonitoringService:
                 'active_during': ['price_update_windows'],
                 'priority': 'high',
                 'fixture_dependent': False,
-                'description': 'Player price movements (6:30 PM user time + 10 min)'
+                'description': 'Player price movements (6:30-6:40 PM user time - 10 minutes only)'
             },
             'final_bonus': {
                 'refresh_seconds': 300,  # 5 minutes until bonus awarded
@@ -390,12 +390,12 @@ class FPLMonitoringService:
             user_tz = pytz.timezone(self.get_user_timezone())
             user_time = utc_now.astimezone(user_tz)
             
-            # Check if it's between 6:30 PM and 6:40 PM user time
+            # Check if it's between 6:30 PM and 6:40 PM user time (10 minutes only)
             current_hour = user_time.hour
             current_minute = user_time.minute
             
-            # 6:30 PM = 18:30, 6:40 PM = 18:40
-            if current_hour == 18 and 30 <= current_minute <= 40:
+            # 6:30 PM = 18:30, 6:40 PM = 18:40 (10 minutes window)
+            if current_hour == 18 and 30 <= current_minute < 40:
                 return True
                 
             return False

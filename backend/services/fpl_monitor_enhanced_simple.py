@@ -789,60 +789,124 @@ async def get_notifications(limit: int = 50, offset: int = 0):
             if not notifications:
                 notifications = create_sample_notifications()
             
-            return {
-                "notifications": notifications,
-                "total": len(notifications),
-                "currentGameweek": monitoring_service.current_gameweek
-            }
+            return notifications
         else:
-            return {"notifications": [], "total": 0, "currentGameweek": 0}
+            return create_sample_notifications()
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 def create_sample_notifications():
-    """Create sample notifications for testing"""
+    """Create sample notifications for testing - Enhanced for mobile app"""
     return [
         {
             "id": "1",
-            "notification_type": "goals",
-            "player_name": "Haaland",
-            "team_name": "Man City",
-            "fixture_id": 123,
-            "gameweek": 3,
-            "old_value": 0,
-            "new_value": 1,
+            "title": "⚽ Goal!",
+            "body": "Erling Haaland scored for Manchester City",
+            "type": "goals",
+            "player": "Erling Haaland",
+            "team": "Manchester City",
+            "team_abbreviation": "MCI",
+            "points": 4,
             "points_change": 4,
-            "message": "⚽ Haaland (Man City) - Goal: 0 → 1 (+4 pts)",
+            "points_category": "Goal",
+            "total_points": 156,
+            "league_ownership": 45.2,
+            "overall_ownership": 38.7,
+            "is_owned": True,
+            "timestamp": (datetime.now(timezone.utc) - timedelta(minutes=5)).isoformat(),
             "is_read": False,
-            "timestamp": (datetime.now(timezone.utc) - timedelta(minutes=5)).isoformat()
+            "home_team": "Manchester City",
+            "away_team": "Arsenal",
+            "fixture": "MCI vs ARS",
+            "impact": "high"
         },
         {
             "id": "2",
-            "notification_type": "assists",
-            "player_name": "Salah",
-            "team_name": "Liverpool",
-            "fixture_id": 124,
-            "gameweek": 3,
-            "old_value": 0,
-            "new_value": 1,
+            "title": "🎯 Assist!",
+            "body": "Mohamed Salah provided an assist",
+            "type": "assists",
+            "player": "Mohamed Salah",
+            "team": "Liverpool",
+            "team_abbreviation": "LIV",
+            "points": 3,
             "points_change": 3,
-            "message": "🎯 Salah (Liverpool) - Assist: 0 → 1 (+3 pts)",
+            "points_category": "Assist",
+            "total_points": 134,
+            "league_ownership": 78.5,
+            "overall_ownership": 65.2,
+            "is_owned": False,
+            "timestamp": (datetime.now(timezone.utc) - timedelta(minutes=10)).isoformat(),
             "is_read": True,
-            "timestamp": (datetime.now(timezone.utc) - timedelta(minutes=10)).isoformat()
+            "home_team": "Liverpool",
+            "away_team": "Chelsea",
+            "fixture": "LIV vs CHE",
+            "impact": "medium"
         },
         {
             "id": "3",
-            "notification_type": "clean_sheets",
-            "player_name": "Alisson",
-            "team_name": "Liverpool",
-            "fixture_id": 124,
-            "gameweek": 3,
-            "old_value": 0,
-            "new_value": 1,
+            "title": "🛡️ Clean Sheet!",
+            "body": "Alisson kept a clean sheet",
+            "type": "clean_sheets",
+            "player": "Alisson",
+            "team": "Liverpool",
+            "team_abbreviation": "LIV",
+            "points": 4,
             "points_change": 4,
-            "message": "🛡️ Alisson (Liverpool) - Clean Sheet: 0 → 1 (+4 pts)",
+            "points_category": "Clean Sheet",
+            "total_points": 98,
+            "league_ownership": 23.1,
+            "overall_ownership": 18.4,
+            "is_owned": False,
+            "timestamp": (datetime.now(timezone.utc) - timedelta(minutes=15)).isoformat(),
             "is_read": False,
-            "timestamp": (datetime.now(timezone.utc) - timedelta(minutes=15)).isoformat()
+            "home_team": "Liverpool",
+            "away_team": "Chelsea",
+            "fixture": "LIV vs CHE",
+            "impact": "medium"
+        },
+        {
+            "id": "4",
+            "title": "🟡 Yellow Card",
+            "body": "John Stones received a yellow card",
+            "type": "yellow_cards",
+            "player": "John Stones",
+            "team": "Manchester City",
+            "team_abbreviation": "MCI",
+            "points": -1,
+            "points_change": -1,
+            "points_category": "Yellow Card",
+            "total_points": 89,
+            "league_ownership": 12.4,
+            "overall_ownership": 8.9,
+            "is_owned": True,
+            "timestamp": (datetime.now(timezone.utc) - timedelta(minutes=20)).isoformat(),
+            "is_read": False,
+            "home_team": "Manchester City",
+            "away_team": "Arsenal",
+            "fixture": "MCI vs ARS",
+            "impact": "low"
+        },
+        {
+            "id": "5",
+            "title": "⭐ Bonus Points",
+            "body": "Kevin De Bruyne earned bonus points",
+            "type": "bonus",
+            "player": "Kevin De Bruyne",
+            "team": "Manchester City",
+            "team_abbreviation": "MCI",
+            "points": 2,
+            "points_change": 2,
+            "points_category": "Bonus",
+            "total_points": 142,
+            "league_ownership": 67.8,
+            "overall_ownership": 52.3,
+            "is_owned": True,
+            "timestamp": (datetime.now(timezone.utc) - timedelta(minutes=25)).isoformat(),
+            "is_read": False,
+            "home_team": "Manchester City",
+            "away_team": "Arsenal",
+            "fixture": "MCI vs ARS",
+            "impact": "medium"
         }
     ]
 

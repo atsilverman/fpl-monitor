@@ -39,9 +39,11 @@ import psycopg2
 import pytz
 from datetime import datetime, timezone
 from typing import Dict, List, Optional, Tuple
+from dotenv import load_dotenv
 
 class FPLRefresh:
     def __init__(self):
+        load_dotenv()  # Load environment variables
         self.db_conn = None
         self.fpl_base_url = "https://fantasy.premierleague.com/api"
         # Discord configuration
@@ -108,11 +110,11 @@ class FPLRefresh:
                 'description': 'Injuries, suspensions, availability'
             },
             'price_changes': {
-                'refresh_seconds': 300,  # 5 minutes during price windows (6:00-7:00 PM Pacific Time)
+                'refresh_seconds': 300,  # 5 minutes during price windows (6:30-6:40 PM Pacific Time)
                 'active_during': ['price_update_windows'],
                 'priority': 'high',
                 'fixture_dependent': False,
-                'description': 'Player price movements (6:00-7:00 PM Pacific Time)'
+                'description': 'Player price movements (6:30-6:40 PM Pacific Time - 10 minutes only)'
             },
             'final_bonus': {
                 'refresh_seconds': 3600,  # 1 hour during between matches phase
@@ -697,7 +699,7 @@ class FPLRefresh:
         return position_map.get(element_type, 'Unknown')
 
     def is_price_update_window(self) -> bool:
-        """Check if current time is within FPL price update window (6:00-7:00 PM Pacific Time)"""
+        """Check if current time is within FPL price update window (6:30-6:40 PM Pacific Time)"""
         from datetime import datetime, timezone
         import pytz
         
@@ -705,11 +707,12 @@ class FPLRefresh:
         utc_now = datetime.now(timezone.utc)
         pacific_time = utc_now.astimezone(pytz.timezone('America/Los_Angeles'))
         
-        # FPL price changes happen around 6:30 PM Pacific Time, monitor from 6:00-7:00 PM
+        # FPL price changes happen around 6:30 PM Pacific Time, monitor for 10 minutes only
         hour = pacific_time.hour
+        minute = pacific_time.minute
         
-        # Check if within the 6:00-7:00 PM Pacific Time window
-        is_window = hour >= 18 and hour < 19  # 18 = 6 PM, 19 = 7 PM
+        # Check if within the 6:30-6:40 PM Pacific Time window (10 minutes only)
+        is_window = (hour == 18 and minute >= 30) and (hour == 18 and minute < 40)
         
         return is_window
 
@@ -2870,12 +2873,18 @@ class FPLRefresh:
     def connect_db(self):
         """Connect to PostgreSQL database"""
         try:
-            self.db_conn = psycopg2.connect(
-                dbname="fpl",
-                user="silverman",
-                host="localhost",
-                port="5432"
-            )
+            # Use DATABASE_URL from environment (Supabase)
+            db_url = os.getenv('DATABASE_URL')
+            if db_url:
+                self.db_conn = psycopg2.connect(db_url)
+            else:
+                # Fallback to local database
+                self.db_conn = psycopg2.connect(
+                    dbname="fpl",
+                    user="silverman",
+                    host="localhost",
+                    port="5432"
+                )
     
         except Exception as e:
             print(f"❌ Database connection failed: {e}")

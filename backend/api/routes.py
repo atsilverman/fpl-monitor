@@ -5,10 +5,10 @@ Centralized API endpoint definitions
 
 from fastapi import APIRouter, HTTPException, Query
 from typing import List, Optional
-from ..services.fpl_monitor_service import FPLMonitorService
-from ..models.notification import FPLNotification
-from ..models.player import Player
-from ..models.gameweek import GameweekInfo
+from services.fpl_monitor_service import FPLMonitorService
+from models.notification import FPLNotification
+from models.player import Player
+from models.gameweek import GameweekInfo
 
 # Create router
 router = APIRouter()
