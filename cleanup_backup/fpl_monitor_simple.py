@@ -86,51 +86,46 @@ class FPLMonitoringService:
         self.red_card_multipliers = {1: -3, 2: -3, 3: -3, 4: -3}  # All positions lose 3 points for red card
         self.yellow_card_multipliers = {1: -1, 2: -1, 3: -1, 4: -1}  # All positions lose 1 point for yellow card
         
-        # Team emoji mapping
-        self.team_emojis = {
-            'Arsenal': '🔴', 'Aston Villa': '🟣', 'Bournemouth': '🔴',
-            'Brentford': '🔴⚫', 'Brighton': '🔵⚪', 'Burnley': '🟤',
-            'Chelsea': '🔵', 'Crystal Palace': '🔴🔵', 'Everton': '🔵',
-            'Fulham': '⚪⚫', 'Leeds': '⚪🟡', 'Liverpool': '🔴',
-            'Man City': '🔵', 'Man Utd': '🔴', 'Newcastle': '⚫⚪',
-            'Nott\'m Forest': '🔴', 'Sunderland': '🔴⚪', 'Spurs': '⚪',
-            'West Ham': '🔴⚪', 'Wolves': '🟡⚫'
+        # Team mapping (no emojis for mobile app)
+        self.team_names = {
+            'Arsenal': 'Arsenal', 'Aston Villa': 'Aston Villa', 'Bournemouth': 'Bournemouth',
+            'Brentford': 'Brentford', 'Brighton': 'Brighton', 'Burnley': 'Burnley',
+            'Chelsea': 'Chelsea', 'Crystal Palace': 'Crystal Palace', 'Everton': 'Everton',
+            'Fulham': 'Fulham', 'Leeds': 'Leeds', 'Liverpool': 'Liverpool',
+            'Man City': 'Man City', 'Man Utd': 'Man Utd', 'Newcastle': 'Newcastle',
+            'Nott\'m Forest': 'Nott\'m Forest', 'Sunderland': 'Sunderland', 'Spurs': 'Spurs',
+            'West Ham': 'West Ham', 'Wolves': 'Wolves'
         }
         
         # Notification categories - copied from Discord bot with mobile adaptations
         self.notification_categories = {
             'goals': {
                 'description': 'Goal',
-                'emoji': '⚽',
                 'points_impact': True,
                 'position_relevant': [1, 2, 3, 4],  # All positions
                 'minutes_required': 0
             },
             'assists': {
                 'description': 'Assist',
-                'emoji': '🎯', 
                 'points_impact': True,
                 'position_relevant': [1, 2, 3, 4],  # All positions
                 'minutes_required': 0
             },
             'clean_sheets': {
                 'description': 'Clean sheet',
-                'emoji': '🛡️',
-                'negative_emoji': '🛡️❌',  # Shield with red X for clean sheet loss
+                # Clean sheet tracking
                 'points_impact': True,
                 'position_relevant': [1, 2, 3],  # GK, DEF, MID get clean sheet points (GK/DEF: +4, MID: +1, FWD: +0)
                 'minutes_required': 0  # FPL API already validates 60+ minutes
             },
             'bonus': {
                 'description': 'BONUS*',
-                'emoji': '⭐',
                 'points_impact': True,
                 'position_relevant': [1, 2, 3, 4],  # All positions
                 'minutes_required': 60  # Only notify after fixture exceeds 60 minutes
             },
             'bonus_final': {
                 'description': 'BONUS (FINAL)',
-                'emoji': '🟡',
                 'points_impact': True,
                 'position_relevant': [1, 2, 3, 4],  # All positions
                 'minutes_required': 0,  # No minutes requirement - based on FPL API population
@@ -159,7 +154,6 @@ class FPLMonitoringService:
             },
             'penalties_missed': {
                 'description': 'Penalties missed',
-                'emoji': '❌',
                 'points_impact': True,
                 'position_relevant': [1, 2, 3, 4],  # All positions
                 'minutes_required': 0
@@ -191,7 +185,6 @@ class FPLMonitoringService:
             },
             'defensive_contribution': {
                 'description': 'Defcon',
-                'emoji': '🔄',
                 'points_impact': True,
                 'position_relevant': [2, 3, 4],  # DEF, MID, FWD
                 'minutes_required': 0,  # No minutes requirement in FPL rules
@@ -202,14 +195,12 @@ class FPLMonitoringService:
             },
             'now_cost': {
                 'description': 'Price change',
-                'emoji': '💰',
                 'points_impact': False,  # Price doesn't directly affect FPL points
                 'position_relevant': [1, 2, 3, 4],  # All positions
                 'minutes_required': 0
             },
             'status': {
                 'description': 'Player status change',
-                'emoji': '🏥',
                 'points_impact': False,  # Status doesn't directly affect FPL points
                 'position_relevant': [1, 2, 3, 4],  # All positions
                 'minutes_required': 0,
@@ -603,7 +594,7 @@ class FPLMonitoringService:
                 'old_value': 0,
                 'new_value': goals,
                 'points_change': total_points,
-                'message': f"⚽ **GOAL** +{total_points} pts",
+                'message': f"GOAL +{total_points} pts",
                 'is_read': False,
                 'timestamp': datetime.now().isoformat()
             })
@@ -623,7 +614,7 @@ class FPLMonitoringService:
                 'old_value': 0,
                 'new_value': assists,
                 'points_change': total_points,
-                'message': f"🎯 **ASSIST** +{total_points} pts",
+                'message': f"ASSIST +{total_points} pts",
                 'is_read': False,
                 'timestamp': datetime.now().isoformat()
             })
@@ -662,7 +653,7 @@ class FPLMonitoringService:
                 'old_value': 0,
                 'new_value': bonus,
                 'points_change': bonus,
-                'message': f"⭐ **BONUS** +{bonus} pts",
+                'message': f"BONUS +{bonus} pts",
                 'is_read': False,
                 'timestamp': datetime.now().isoformat()
             })

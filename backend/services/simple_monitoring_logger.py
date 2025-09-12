@@ -25,11 +25,11 @@ class SimpleMonitoringLogger:
         self.supabase_key = os.getenv('SUPABASE_SERVICE_ROLE_KEY')
         
         if not self.supabase_url or not self.supabase_key:
-            print("❌ Missing Supabase credentials in .env file")
+            print("Missing Supabase credentials in .env file")
             self.supabase_url = None
             self.supabase_key = None
         else:
-            print(f"✅ Monitoring logger initialized for {service_name}")
+            print(f"Monitoring logger initialized for {service_name}")
     
     def _get_headers(self):
         """Get headers for Supabase requests"""
@@ -46,7 +46,7 @@ class SimpleMonitoringLogger:
     def log_start(self, run_type: str, metadata: Dict[str, Any] = None) -> Optional[int]:
         """Log the start of a monitoring run"""
         if not self.supabase_url or not self.supabase_key:
-            print("❌ Supabase not configured")
+            print("Supabase not configured")
             return None
         
         try:
@@ -67,14 +67,14 @@ class SimpleMonitoringLogger:
             if response.status_code == 201:
                 result = response.json()
                 log_id = result[0]['id'] if result else None
-                print(f"✅ Logged start: {run_type} (ID: {log_id})")
+                print(f"Logged start: {run_type} (ID: {log_id})")
                 return log_id
             else:
-                print(f"❌ Failed to log start: {response.status_code} - {response.text}")
+                print(f"Failed to log start: {response.status_code} - {response.text}")
                 return None
                 
         except Exception as e:
-            print(f"❌ Error logging start: {e}")
+            print(f"Error logging start: {e}")
             return None
     
     def log_complete(self, log_id: int, status: str = "success", 
@@ -82,7 +82,7 @@ class SimpleMonitoringLogger:
                     notifications_sent: int = 0, error_message: str = None):
         """Log the completion of a monitoring run"""
         if not self.supabase_url or not self.supabase_key:
-            print("❌ Supabase not configured")
+            print("Supabase not configured")
             return
         
         try:
@@ -120,12 +120,12 @@ class SimpleMonitoringLogger:
             )
             
             if response.status_code == 200:
-                print(f"✅ Logged completion: {status}")
+                print(f"Logged completion: {status}")
             else:
-                print(f"❌ Failed to log completion: {response.status_code} - {response.text}")
+                print(f"Failed to log completion: {response.status_code} - {response.text}")
                 
         except Exception as e:
-            print(f"❌ Error logging completion: {e}")
+            print(f"Error logging completion: {e}")
     
     def log_error(self, log_id: int, error_message: str):
         """Log an error for a monitoring run"""
@@ -150,7 +150,7 @@ class SimpleMonitoringLogger:
     def get_all_services_status(self) -> list:
         """Get status of all monitoring services"""
         if not self.supabase_url or not self.supabase_key:
-            print("❌ Supabase not configured")
+            print("Supabase not configured")
             return []
         
         try:
@@ -188,11 +188,11 @@ class SimpleMonitoringLogger:
                     
                     return result
                 else:
-                    print(f"❌ Failed to get services status: {response.status_code} - {response.text}")
+                    print(f"Failed to get services status: {response.status_code} - {response.text}")
                     return []
                     
         except Exception as e:
-            print(f"❌ Error getting services status: {e}")
+            print(f"Error getting services status: {e}")
             return []
     
     def _calculate_health_status(self, record: dict) -> str:
@@ -223,10 +223,10 @@ def check_monitoring_status():
         for service in services:
             health_emoji = {
                 'running': '🟢',
-                'recent': '🟢', 
-                'stale': '🟡',
-                'offline': '🔴'
-            }.get(service['health_status'], '❓')
+                'recent': 'ONLINE', 
+                'stale': 'STALE',
+                'offline': 'OFFLINE'
+            }.get(service['health_status'], 'UNKNOWN')
             
             print(f"{health_emoji} {service['service_name']} - {service['health_status']}")
             print(f"   Last run: {service['started_at']}")

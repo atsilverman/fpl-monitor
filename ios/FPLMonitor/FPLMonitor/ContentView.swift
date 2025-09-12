@@ -72,7 +72,6 @@ struct MainTabView: View {
     @EnvironmentObject private var notificationManager: NotificationManager
     @EnvironmentObject private var analyticsManager: AnalyticsManager
     @EnvironmentObject private var userManager: UserManager
-    @State private var showingSettings = false
     @State private var selectedTab = 0
     
     var body: some View {
@@ -95,35 +94,12 @@ struct MainTabView: View {
                 analyticsManager.trackEvent(.appOpen)
             }
             
-            // Floating Settings Button
-            VStack {
-                HStack {
-                    Spacer()
-                    Button(action: {
-                        showingSettings = true
-                    }) {
-                        Image(systemName: "person.crop.circle.fill")
-                            .font(.title2)
-                            .foregroundColor(.fplText)
-                    }
-                    .padding(.trailing, 20)
-                }
-                .padding(.top, 50)
-                Spacer()
-            }
-            
             // Floating Dock
             VStack {
                 Spacer()
                 FloatingDock(selectedTab: $selectedTab)
                     .padding(.bottom, 20)
             }
-        }
-        .sheet(isPresented: $showingSettings) {
-            SettingsView()
-                .environmentObject(notificationManager)
-                .environmentObject(analyticsManager)
-                .environmentObject(userManager)
         }
     }
 }
@@ -136,14 +112,18 @@ struct FloatingDock: View {
             // Background
             RoundedRectangle(cornerRadius: 25)
                 .fill(.ultraThinMaterial)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 25)
+                        .stroke(Color.white, lineWidth: 1)
+                )
                 .shadow(color: .black.opacity(0.15), radius: 10, x: 0, y: 5)
                 .frame(width: 200, height: 50)
             
             // Sliding indicator - positioned behind the tabs
             HStack(spacing: 0) {
-                RoundedRectangle(cornerRadius: 20)
-                    .fill(Color.fplPrimary)
-                    .frame(width: 60, height: 40)
+                RoundedRectangle(cornerRadius: 24)
+                    .fill(Color.fplText)
+                    .frame(width: 60, height: 44)
                     .offset(x: CGFloat(selectedTab) * 66.67 + 3.33)
                     .animation(.spring(response: 0.3, dampingFraction: 0.7), value: selectedTab)
                 Spacer()

@@ -30,8 +30,10 @@ struct FPLNotification: Identifiable, Codable {
     let awayTeam: String
     let fixture: String
     let impact: NotificationImpact
+    let playerPrice: Double?
+    let priceChange: Double?
     
-    init(id: String = UUID().uuidString, title: String, body: String, type: NotificationType, player: String, team: String, teamAbbreviation: String, points: Int, pointsChange: Int, pointsCategory: String, totalPoints: Int, gameweekPoints: Int, gameweek: Int, overallOwnership: Double = 0.0, isOwned: Bool = false, timestamp: Date = Date(), isRead: Bool = false, homeTeam: String, awayTeam: String, fixture: String, impact: NotificationImpact = .medium) {
+    init(id: String = UUID().uuidString, title: String, body: String, type: NotificationType, player: String, team: String, teamAbbreviation: String, points: Int, pointsChange: Int, pointsCategory: String, totalPoints: Int, gameweekPoints: Int, gameweek: Int, overallOwnership: Double = 0.0, isOwned: Bool = false, timestamp: Date = Date(), isRead: Bool = false, homeTeam: String, awayTeam: String, fixture: String, impact: NotificationImpact = .medium, playerPrice: Double? = nil, priceChange: Double? = nil) {
         self.id = id
         self.title = title
         self.body = body
@@ -53,6 +55,8 @@ struct FPLNotification: Identifiable, Codable {
         self.awayTeam = awayTeam
         self.fixture = fixture
         self.impact = impact
+        self.playerPrice = playerPrice
+        self.priceChange = priceChange
     }
 }
 
@@ -85,7 +89,7 @@ enum NotificationType: String, CaseIterable, Codable {
         case .ownGoals: return "😱 Own Goals"
         case .saves: return "💪 Saves"
         case .goalsConceded: return "😞 Goals Conceded"
-        case .defensiveContribution: return "🛡️ Defensive Contribution"
+        case .defensiveContribution: return "🛡️ DEFCON"
         case .priceChanges: return "💰 Price Changes"
         case .statusChanges: return "📊 Status Changes"
         }

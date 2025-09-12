@@ -19,7 +19,7 @@ try:
     SUPABASE_AVAILABLE = True
 except ImportError:
     SUPABASE_AVAILABLE = False
-    print("⚠️  Supabase client not available. Install with: pip install supabase")
+    print("Supabase client not available. Install with: pip install supabase")
 
 load_dotenv()
 
@@ -34,7 +34,7 @@ class SupabaseMonitoringLogger:
     def _connect_supabase(self):
         """Connect to Supabase"""
         if not SUPABASE_AVAILABLE:
-            print("❌ Supabase client not available")
+            print("Supabase client not available")
             return
         
         try:
@@ -42,13 +42,13 @@ class SupabaseMonitoringLogger:
             key = os.getenv('SUPABASE_SERVICE_ROLE_KEY')
             
             if not url or not key:
-                print("❌ Missing Supabase credentials in .env file")
+                print("Missing Supabase credentials in .env file")
                 return
             
             self.supabase = create_client(url, key)
-            print(f"✅ Connected to Supabase for monitoring logger")
+            print(f"Connected to Supabase for monitoring logger")
         except Exception as e:
-            print(f"❌ Failed to connect to Supabase: {e}")
+            print(f"Failed to connect to Supabase: {e}")
             self.supabase = None
     
     def _execute_query(self, query: str, params: dict = None) -> Optional[Any]:
@@ -67,7 +67,7 @@ class SupabaseMonitoringLogger:
             elif "UPDATE" in query.upper():
                 return self._update_record(query, params)
         except Exception as e:
-            print(f"❌ Supabase query failed: {e}")
+            print(f"Supabase query failed: {e}")
             return None
     
     def _insert_record(self, query: str, params: dict) -> Optional[int]:
@@ -85,7 +85,7 @@ class SupabaseMonitoringLogger:
                 result = self.supabase.table('monitoring_log').insert(data).execute()
                 return result.data[0]['id'] if result.data else None
         except Exception as e:
-            print(f"❌ Insert failed: {e}")
+            print(f"Insert failed: {e}")
             return None
     
     def _select_records(self, query: str, params: dict) -> Optional[list]:
@@ -100,7 +100,7 @@ class SupabaseMonitoringLogger:
                 result = self.supabase.table('monitoring_log').select('*').order('started_at', desc=True).limit(1).execute()
                 return result.data
         except Exception as e:
-            print(f"❌ Select failed: {e}")
+            print(f"Select failed: {e}")
             return None
     
     def _update_record(self, query: str, params: dict) -> bool:
@@ -124,7 +124,7 @@ class SupabaseMonitoringLogger:
                     self.supabase.table('monitoring_log').update(update_data).eq('id', log_id).execute()
                     return True
         except Exception as e:
-            print(f"❌ Update failed: {e}")
+            print(f"Update failed: {e}")
             return False
         
         return False
@@ -145,7 +145,7 @@ class SupabaseMonitoringLogger:
             result = self.supabase.table('monitoring_log').insert(data).execute()
             return result.data[0]['id'] if result.data else None
         except Exception as e:
-            print(f"❌ Failed to log start: {e}")
+            print(f"Failed to log start: {e}")
             return None
     
     def log_complete(self, log_id: int, status: str = "success", 
@@ -171,7 +171,7 @@ class SupabaseMonitoringLogger:
             
             self.supabase.table('monitoring_log').update(update_data).eq('id', log_id).execute()
         except Exception as e:
-            print(f"❌ Failed to log completion: {e}")
+            print(f"Failed to log completion: {e}")
     
     def log_error(self, log_id: int, error_message: str):
         """Log an error for a monitoring run"""
@@ -213,7 +213,7 @@ class SupabaseMonitoringLogger:
                     'health_status': self._calculate_health_status(record)
                 }
         except Exception as e:
-            print(f"❌ Failed to get latest status: {e}")
+            print(f"Failed to get latest status: {e}")
         return None
     
     def get_all_services_status(self) -> list:
@@ -223,7 +223,7 @@ class SupabaseMonitoringLogger:
             result = self.supabase.table('monitoring_status').select('*').execute()
             return result.data if result.data else []
         except Exception as e:
-            print(f"❌ Failed to get services status: {e}")
+            print(f"Failed to get services status: {e}")
             return []
     
     def _calculate_health_status(self, record: dict) -> str:
@@ -251,10 +251,10 @@ def check_monitoring_status():
         for service in services:
             health_emoji = {
                 'running': '🟢',
-                'recent': '🟢', 
-                'stale': '🟡',
-                'offline': '🔴'
-            }.get(service['health_status'], '❓')
+                'recent': 'ONLINE', 
+                'stale': 'STALE',
+                'offline': 'OFFLINE'
+            }.get(service['health_status'], 'UNKNOWN')
             
             print(f"{health_emoji} {service['service_name']} - {service['health_status']}")
             print(f"   Last run: {service['started_at']}")

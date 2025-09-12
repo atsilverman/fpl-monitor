@@ -26,28 +26,44 @@ struct NotificationCardView: View {
                 
                 Spacer()
                 
-                // Right side: Points and score category - pushed to right edge
+                // Right side: Points/Price and category - pushed to right edge
                 VStack(alignment: .trailing, spacing: 2) {
-                    // Point change (primary) with enhanced contrast and drop shadow
-                    HStack(alignment: .center, spacing: 6) {
-                        Image(systemName: notification.pointsChange > 0 ? "arrow.up.circle.fill" : "arrow.down.circle.fill")
-                            .font(.system(size: 15))
-                            .foregroundColor(notification.pointsChange > 0 ? .green : .red)
-                            .offset(y: 1)
-                            .shadow(color: .black.opacity(0.1), radius: 1, x: 0, y: 1)
+                    if notification.type == .priceChanges {
+                        // Price change display - just arrow and text
+                        VStack(alignment: .trailing, spacing: 4) {
+                            let priceChange = notification.priceChange ?? 0.0
+                            
+                            Image(systemName: priceChange > 0 ? "arrow.up.circle.fill" : "arrow.down.circle.fill")
+                                .font(.system(size: 15))
+                                .foregroundColor(priceChange > 0 ? .green : .red)
+                                .shadow(color: .black.opacity(0.1), radius: 1, x: 0, y: 1)
+                            
+                            Text(priceChange > 0 ? "Price Rise" : "Price Fall")
+                                .font(.caption)
+                                .fontWeight(.bold)
+                                .foregroundColor(.fplText)
+                        }
+                    } else {
+                        // Gameplay points display
+                        HStack(alignment: .center, spacing: 6) {
+                            Image(systemName: notification.pointsChange > 0 ? "arrow.up.circle.fill" : "arrow.down.circle.fill")
+                                .font(.system(size: 15))
+                                .foregroundColor(notification.pointsChange > 0 ? .green : .red)
+                                .offset(y: 1)
+                                .shadow(color: .black.opacity(0.1), radius: 1, x: 0, y: 1)
+                            
+                            Text("\(notification.pointsChange > 0 ? "+" : "")\(notification.pointsChange)")
+                                .font(.system(size: 20, weight: .bold))
+                                .foregroundColor(notification.pointsChange > 0 ? .green : notification.pointsChange < 0 ? .red : .fplText)
+                                .shadow(color: .black.opacity(0.1), radius: 1, x: 0, y: 1)
+                        }
                         
-                        Text("\(notification.pointsChange > 0 ? "+" : "")\(notification.pointsChange)")
-                            .font(.system(size: 20, weight: .bold))
-                            .foregroundColor(notification.pointsChange > 0 ? .green : notification.pointsChange < 0 ? .red : .fplText)
-                            .shadow(color: .black.opacity(0.1), radius: 1, x: 0, y: 1)
+                        // Score category below points
+                        Text(notification.pointsCategory)
+                            .font(.caption)
+                            .fontWeight(.bold)
+                            .foregroundColor(.fplText)
                     }
-                    
-                    // Score category below points
-                    Text(notification.pointsCategory)
-                        .font(.caption)
-                        .fontWeight(.bold)
-                        .foregroundColor(.fplText)
-                    
                 }
                 .padding(.trailing, 4)
             }
@@ -133,9 +149,10 @@ struct NotificationCardView: View {
     }
     
     private var gradientStartColor: Color {
-        if notification.pointsChange > 0 {
+        let changeValue = getChangeValue()
+        if changeValue > 0 {
             return Color.green.opacity(0.0)
-        } else if notification.pointsChange < 0 {
+        } else if changeValue < 0 {
             return Color.red.opacity(0.0)
         } else {
             return Color.gray.opacity(0.0)
@@ -143,12 +160,21 @@ struct NotificationCardView: View {
     }
     
     private var gradientEndColor: Color {
-        if notification.pointsChange > 0 {
+        let changeValue = getChangeValue()
+        if changeValue > 0 {
             return Color.green.opacity(0.15)
-        } else if notification.pointsChange < 0 {
+        } else if changeValue < 0 {
             return Color.red.opacity(0.15)
         } else {
             return Color.gray.opacity(0.15)
+        }
+    }
+    
+    private func getChangeValue() -> Double {
+        if notification.type == .priceChanges {
+            return notification.priceChange ?? 0.0
+        } else {
+            return Double(notification.pointsChange)
         }
     }
     
@@ -177,29 +203,58 @@ struct NotificationCardView: View {
     
     private var badgesView: some View {
         HStack(spacing: 6) {
-            // Gameweek points - now with background
-            Text("\(notification.gameweekPoints) pts")
-                .font(.caption2)
-                .fontWeight(.bold)
-                .foregroundColor(.fplText)
-                .padding(.horizontal, 6)
-                .padding(.vertical, 2)
-                .background(Color.gray.opacity(0.1))
-                .clipShape(RoundedRectangle(cornerRadius: 4))
-            
-            Text("|")
-                .font(.caption2)
-                .foregroundColor(.gray)
-            
-            // TSB - now without background
-            HStack(spacing: 3) {
-                Image(systemName: "person.2.fill")
+            if notification.type == .priceChanges {
+                // Price information for price change notifications
+                if let playerPrice = notification.playerPrice, playerPrice > 0 {
+                    Text("£\(String(format: "%.1f", playerPrice))")
+                        .font(.caption2)
+                        .fontWeight(.bold)
+                        .foregroundColor(.fplText)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(Color.gray.opacity(0.1))
+                        .clipShape(RoundedRectangle(cornerRadius: 4))
+                }
+                
+                Text("|")
                     .font(.caption2)
                     .foregroundColor(.gray)
                 
-                Text("\(Int(notification.overallOwnership))%")
+                // TSB - now without background
+                HStack(spacing: 3) {
+                    Image(systemName: "person.2.fill")
+                        .font(.caption2)
+                        .foregroundColor(.gray)
+                    
+                    Text("\(Int(notification.overallOwnership))%")
+                        .font(.caption2)
+                        .foregroundColor(.gray)
+                }
+            } else {
+                // Gameplay points information
+                Text("\(notification.gameweekPoints) pts")
+                    .font(.caption2)
+                    .fontWeight(.bold)
+                    .foregroundColor(.fplText)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
+                    .background(Color.gray.opacity(0.1))
+                    .clipShape(RoundedRectangle(cornerRadius: 4))
+                
+                Text("|")
                     .font(.caption2)
                     .foregroundColor(.gray)
+                
+                // TSB - now without background
+                HStack(spacing: 3) {
+                    Image(systemName: "person.2.fill")
+                        .font(.caption2)
+                        .foregroundColor(.gray)
+                    
+                    Text("\(Int(notification.overallOwnership))%")
+                        .font(.caption2)
+                        .foregroundColor(.gray)
+                }
             }
         }
     }

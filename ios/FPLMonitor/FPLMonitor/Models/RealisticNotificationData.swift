@@ -460,7 +460,7 @@ struct RealisticNotificationData {
         
         // DEFENSIVE CONTRIBUTION
         FPLNotification(
-            title: "🛡️ Defensive Contribution!",
+            title: "🛡️ DEFCON!",
             body: "Virgil van Dijk made key defensive contributions",
             type: .defensiveContribution,
             player: "Virgil van Dijk",
@@ -468,7 +468,7 @@ struct RealisticNotificationData {
             teamAbbreviation: "LIV",
             points: 1,
             pointsChange: +1,
-            pointsCategory: "Defensive Contribution",
+            pointsCategory: "DEFCON",
             totalPoints: 47, gameweekPoints: 5, gameweek: 15,
             overallOwnership: 19.7,
             isOwned: true,
@@ -497,7 +497,31 @@ struct RealisticNotificationData {
             homeTeam: "West Ham",
             awayTeam: "Tottenham",
             fixture: "WHU vs TOT",
-            impact: .low
+            impact: .low,
+            playerPrice: 7.2,
+            priceChange: 0.1
+        ),
+        
+        FPLNotification(
+            title: "💰 Price Change!",
+            body: "Marcus Rashford's price decreased to £8.4m",
+            type: .priceChanges,
+            player: "Marcus Rashford",
+            team: "Manchester United",
+            teamAbbreviation: "MUN",
+            points: 0,
+            pointsChange: 0,
+            pointsCategory: "Price Fall",
+            totalPoints: 38, gameweekPoints: 1, gameweek: 15,
+            overallOwnership: 28.5,
+            isOwned: true,
+            timestamp: Calendar.current.date(byAdding: .day, value: -3, to: Date()) ?? Date(),
+            homeTeam: "Manchester United",
+            awayTeam: "Brighton",
+            fixture: "MUN vs BHA",
+            impact: .medium,
+            playerPrice: 8.4,
+            priceChange: -0.1
         ),
         
         // STATUS CHANGES

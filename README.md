@@ -1,233 +1,512 @@
-# 🎯 FPL Monitor
+# FPL Mobile Monitor
 
-**Production-ready Fantasy Premier League monitoring system with iOS app and cloud backend.**
+A comprehensive Fantasy Premier League monitoring system with real-time notifications, dynamic monitoring modes, and mobile app integration.
 
-[![Python](https://img.shields.io/badge/Python-3.11+-blue.svg)](https://python.org)
-[![FastAPI](https://img.shields.io/badge/FastAPI-0.104+-green.svg)](https://fastapi.tiangolo.com)
-[![Swift](https://img.shields.io/badge/Swift-5.9+-orange.svg)](https://swift.org)
-[![iOS](https://img.shields.io/badge/iOS-17.0+-lightgrey.svg)](https://developer.apple.com/ios)
+## 🏗️ Architecture Overview
 
-## 🚀 Quick Start
+### System Components
 
-### Prerequisites
-- Python 3.11+
-- Xcode 15+ (for iOS development)
-- Supabase account
-- DigitalOcean account (for deployment)
+```
+┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
+│   iOS Mobile    │    │  Monitoring     │    │   Supabase      │
+│   Application   │◄──►│   Service       │◄──►│   Database      │
+│   (SwiftUI)     │    │   (Python)      │    │   (PostgreSQL)  │
+└─────────────────┘    └─────────────────┘    └─────────────────┘
+         │                       │                       │
+         │                       │                       │
+         ▼                       ▼                       ▼
+┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
+│   Push          │    │   FPL API       │    │   DigitalOcean  │
+│ Notifications   │    │   (External)    │    │   Droplet       │
+│   (APNS)        │    │                 │    │   (Production)  │
+└─────────────────┘    └─────────────────┘    └─────────────────┘
+```
 
-### Backend Setup
+### Key Features
+
+- **Dynamic Monitoring**: Automatically adjusts refresh rates based on game state
+- **Real-time Notifications**: Push notifications for goals, assists, price changes, and more
+- **Deduplication**: Prevents duplicate notifications across service restarts
+- **Mobile-First**: Clean, emoji-free output optimized for SwiftUI
+- **Scalable**: Built on Supabase with PostgreSQL backend
+
+## 📊 Monitoring Modes
+
+### Mode 1: Live Performance Monitoring
+**When Active**: During live matches
+**Refresh Rate**: 60 seconds
+**Triggers**: 
+- Live matches detected in `fixtures` table (`started=true AND finished=false`)
+- FPL API `/event/{gameweek}/live` endpoint
+
+**Monitors**:
+- Goals scored
+- Assists
+- Clean sheets
+- Bonus points (unofficial BPS calculation)
+- Yellow/Red cards
+- Penalties saved/missed
+
+**Database Inputs**:
+- `fixtures` table: Live match detection
+- `live_monitor_history` table: Change tracking
+- FPL API: Real-time player stats
+
+### Mode 2: Price Change Monitoring
+**When Active**: 6:30-6:40 PM Pacific Time (10-minute window)
+**Refresh Rate**: 5 minutes (300 seconds)
+**Triggers**: 
+- Time-based detection (Pacific timezone)
+- FPL API price changes
+
+**Monitors**:
+- Player price increases/decreases
+- Price change notifications
+
+**Database Inputs**:
+- `players` table: Current prices
+- `live_monitor_history` table: Change tracking
+- FPL API: Price updates
+
+### Mode 3: Final Bonus Monitoring
+**When Active**: After gameweeks finish + FPL data updated
+**Refresh Rate**: 5 minutes (300 seconds)
+**Triggers**:
+- Gameweek finished (`finished=true`)
+- FPL data checked (`data_checked=true`)
+- Not already processed
+
+**Monitors**:
+- Official FPL bonus points
+- Final bonus point changes
+
+**Database Inputs**:
+- `monitoring_state` table: Processed gameweek tracking
+- `live_monitor_history` table: Change tracking
+- FPL API: Official bonus data
+
+### Mode 4: Status Change Monitoring
+**When Active**: Always (24/7)
+**Refresh Rate**: 1 hour (3600 seconds)
+**Triggers**: Continuous monitoring
+
+**Monitors**:
+- Player injury status
+- Suspension status
+- Availability changes
+
+**Database Inputs**:
+- `players` table: Status changes
+- `live_monitor_history` table: Change tracking
+- FPL API: Player status updates
+
+## 🗄️ Database Schema
+
+### Core Tables
+
+#### `players`
+**Purpose**: FPL player data and current status
+```sql
+- id (SERIAL PRIMARY KEY)
+- fpl_id (INTEGER UNIQUE) -- FPL's element_id
+- web_name (VARCHAR) -- Player display name
+- team_id (INTEGER) -- References teams table
+- element_type (INTEGER) -- 1=GK, 2=DEF, 3=MID, 4=FWD
+- now_cost (INTEGER) -- Current price (55 = £5.5m)
+- status (VARCHAR) -- 'a'=available, 'i'=injured, etc.
+- total_points (INTEGER) -- Season total points
+- event_points (INTEGER) -- Current gameweek points
+```
+
+#### `fixtures`
+**Purpose**: Match fixtures and live status
+```sql
+- id (INTEGER PRIMARY KEY) -- FPL's fixture_id
+- event_id (INTEGER) -- References gameweeks table
+- team_h (INTEGER) -- Home team ID
+- team_a (INTEGER) -- Away team ID
+- started (BOOLEAN) -- Match has started
+- finished (BOOLEAN) -- Match has finished
+- kickoff_time (TIMESTAMP) -- Match start time
+- team_h_score (INTEGER) -- Home team score
+- team_a_score (INTEGER) -- Away team score
+```
+
+#### `gameweek_stats`
+**Purpose**: Player performance statistics per gameweek
+```sql
+- id (SERIAL PRIMARY KEY)
+- player_id (INTEGER) -- References players table
+- fixture_id (INTEGER) -- References fixtures table
+- gameweek (INTEGER) -- Gameweek number
+- goals_scored (INTEGER) -- Goals scored
+- assists (INTEGER) -- Assists made
+- clean_sheets (INTEGER) -- Clean sheets
+- bonus (INTEGER) -- Bonus points awarded
+- bps (INTEGER) -- Bonus points system score
+- yellow_cards (INTEGER) -- Yellow cards
+- red_cards (INTEGER) -- Red cards
+- minutes (INTEGER) -- Minutes played
+```
+
+#### `live_monitor_history`
+**Purpose**: Audit trail of all monitoring events and changes
+```sql
+- id (SERIAL PRIMARY KEY)
+- player_id (INTEGER) -- References players table
+- player_name (VARCHAR) -- Player name for quick reference
+- team_name (VARCHAR) -- Team name for quick reference
+- fixture_id (INTEGER) -- References fixtures table
+- gameweek (INTEGER) -- Gameweek number
+- event_type (VARCHAR) -- Type of event (live_goals_scored, price_change, etc.)
+- old_value (INTEGER) -- Previous value
+- new_value (INTEGER) -- New value
+- points_change (INTEGER) -- FPL points change
+- timestamp (TIMESTAMP) -- When change occurred
+```
+
+#### `monitoring_state`
+**Purpose**: Tracks processed gameweeks to prevent duplicate processing
+```sql
+- id (SERIAL PRIMARY KEY)
+- gameweek (INTEGER UNIQUE) -- Gameweek number
+- bonus_processed (BOOLEAN) -- Whether bonus points processed
+- last_processed_at (TIMESTAMP) -- When last processed
+- created_at (TIMESTAMP) -- Record creation time
+```
+
+#### `monitoring_log`
+**Purpose**: Service run logs and health monitoring
+```sql
+- id (SERIAL PRIMARY KEY)
+- service_name (VARCHAR) -- Name of monitoring service
+- run_type (VARCHAR) -- Type of run (monitoring_start, price_check, etc.)
+- status (VARCHAR) -- running, completed, failed
+- started_at (TIMESTAMP) -- When run started
+- completed_at (TIMESTAMP) -- When run completed
+- duration_seconds (INTEGER) -- Run duration
+- records_processed (INTEGER) -- Number of records processed
+- changes_detected (INTEGER) -- Number of changes detected
+- notifications_sent (INTEGER) -- Number of notifications sent
+```
+
+### User Management Tables
+
+#### `users`
+**Purpose**: User profiles extending Supabase auth
+```sql
+- id (UUID PRIMARY KEY) -- References auth.users
+- email (TEXT UNIQUE) -- User email
+- fpl_manager_id (INTEGER) -- User's FPL manager ID
+- notification_preferences (JSONB) -- Notification settings
+- owned_players (INTEGER[]) -- Array of owned player IDs
+- mini_league_ids (INTEGER[]) -- Array of mini league IDs
+- timezone (TEXT) -- User timezone
+```
+
+#### `user_notifications`
+**Purpose**: User-specific notification timeline
+```sql
+- id (UUID PRIMARY KEY)
+- user_id (UUID) -- References users table
+- notification_type (TEXT) -- Type of notification
+- player_id (INTEGER) -- Player involved
+- player_name (TEXT) -- Player name
+- team_name (TEXT) -- Team name
+- points_change (INTEGER) -- Points change
+- message (TEXT) -- Notification message
+- is_read (BOOLEAN) -- Read status
+- created_at (TIMESTAMP) -- Notification time
+```
+
+## 🔌 API Endpoints
+
+### Health & Status
+- `GET /` - Health check
+- `GET /api/v1/monitoring/status` - Complete monitoring status
+- `GET /api/v1/fpl/current-gameweek` - Current gameweek information
+
+### WebSocket
+- `WS /ws` - Real-time updates for mobile app
+
+### API Response Examples
+
+#### Monitoring Status
+```json
+{
+  "monitoring_active": true,
+  "current_game_state": "no_live_matches",
+  "websocket_connections": 0,
+  "timestamp": "2025-09-12T16:40:53.992Z",
+  "fpl_api_connected": true,
+  "monitoring_categories": {
+    "live_performance": {
+      "active": false,
+      "next_refresh": 0,
+      "config": {
+        "refresh_seconds": 60,
+        "active_during": ["live_matches", "upcoming_matches"],
+        "priority": "high",
+        "description": "Goals, assists, cards, clean sheets"
+      }
+    },
+    "price_changes": {
+      "active": false,
+      "next_refresh": 0,
+      "config": {
+        "refresh_seconds": 300,
+        "active_during": ["price_update_windows"],
+        "priority": "high",
+        "description": "Player price movements (6:30-6:40 PM user time)"
+      }
+    }
+  },
+  "user_timezone": "America/Los_Angeles",
+  "price_window_active": false,
+  "processed_gameweeks": [1, 2, 3]
+}
+```
+
+## 🚀 Production Deployment
+
+### Server Requirements
+- **OS**: Ubuntu 20.04+ or similar Linux distribution
+- **Python**: 3.8+
+- **Memory**: 2GB+ RAM
+- **Storage**: 10GB+ disk space
+- **Network**: Stable internet connection
+
+### Dependencies
 ```bash
-# Clone repository
-git clone <repository-url>
-cd fpl-monitor
+# Core dependencies
+fastapi==0.104.1
+uvicorn==0.24.0
+requests==2.31.0
+python-dotenv==1.0.0
+pytz==2023.3
+pydantic==2.5.0
 
+# Database
+supabase==2.0.0
+psycopg2-binary==2.9.9
+
+# Monitoring
+websockets==12.0
+```
+
+### Environment Variables
+```bash
+# Supabase Configuration
+SUPABASE_URL=your_supabase_url
+SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
+
+# FPL Configuration
+FPL_MINI_LEAGUE_ID=your_league_id
+
+# APNS Configuration (for push notifications)
+APNS_KEY_ID=your_key_id
+APNS_TEAM_ID=your_team_id
+APNS_BUNDLE_ID=your_bundle_id
+APNS_PRIVATE_KEY_PATH=/path/to/AuthKey.p8
+
+# Optional
+DISCORD_WEBHOOK_URL=your_discord_webhook
+```
+
+### Deployment Steps
+
+1. **Clone Repository**
+   ```bash
+   git clone <repository_url>
+   cd fpl-monitor
+   ```
+
+2. **Install Dependencies**
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+3. **Configure Environment**
+   ```bash
+   cp env.example .env
+   # Edit .env with your configuration
+   ```
+
+4. **Setup Database**
+   ```bash
+   # Run Supabase schema
+   psql -h your_db_host -U your_user -d your_db -f database/supabase_schema.sql
+   ```
+
+5. **Deploy Service**
+   ```bash
+   # Copy service file
+   cp backend/services/fpl_monitor_enhanced_production.py /opt/fpl-monitor/
+   
+   # Setup systemd service
+   sudo cp deployment/fpl-monitor.service /etc/systemd/system/
+   sudo systemctl daemon-reload
+   sudo systemctl enable fpl-monitor
+   sudo systemctl start fpl-monitor
+   ```
+
+6. **Verify Deployment**
+   ```bash
+   # Check service status
+   sudo systemctl status fpl-monitor
+   
+   # Check logs
+   sudo journalctl -u fpl-monitor -f
+   
+   # Test API
+   curl http://localhost:8000/
+   ```
+
+## 📱 Mobile App Integration
+
+### iOS SwiftUI App
+The mobile app is located in the `ios/` directory and includes:
+
+- **Real-time Notifications**: Push notifications for all monitoring events
+- **Clean UI**: No emojis, optimized for SwiftUI
+- **User Management**: Supabase authentication integration
+- **Notification Timeline**: Historical notification view
+- **Settings**: Customizable notification preferences
+
+### Key Features
+- **Push Notifications**: APNS integration for real-time alerts
+- **Offline Support**: Local notification storage
+- **User Preferences**: Customizable notification types
+- **Team Badges**: Visual team identification
+- **Analytics**: Notification statistics and trends
+
+## 🔧 Monitoring & Maintenance
+
+### Service Management
+```bash
+# Start service
+sudo systemctl start fpl-monitor
+
+# Stop service
+sudo systemctl stop fpl-monitor
+
+# Restart service
+sudo systemctl restart fpl-monitor
+
+# Check status
+sudo systemctl status fpl-monitor
+
+# View logs
+sudo journalctl -u fpl-monitor -f
+```
+
+### Health Monitoring
+- **Service Health**: Check `/api/v1/monitoring/status`
+- **Database Health**: Monitor Supabase connection
+- **FPL API Health**: Monitor external API connectivity
+- **Log Monitoring**: Review service logs for errors
+
+### Troubleshooting
+
+#### Common Issues
+1. **Service Won't Start**
+   - Check Python dependencies
+   - Verify environment variables
+   - Check systemd service configuration
+
+2. **Database Connection Issues**
+   - Verify Supabase credentials
+   - Check network connectivity
+   - Review database permissions
+
+3. **FPL API Issues**
+   - Check internet connectivity
+   - Verify API endpoint availability
+   - Review rate limiting
+
+4. **Notification Issues**
+   - Verify APNS configuration
+   - Check device registration
+   - Review notification permissions
+
+## 📈 Performance & Scaling
+
+### Current Performance
+- **Monitoring Frequency**: 60s (live), 5min (price), 1h (status)
+- **Database Queries**: Optimized with proper indexing
+- **Memory Usage**: ~200MB typical
+- **CPU Usage**: Low during normal operation
+
+### Scaling Considerations
+- **Database**: Supabase handles scaling automatically
+- **Monitoring Service**: Can run multiple instances with load balancing
+- **Mobile App**: Client-side scaling through app store distribution
+
+## 🔒 Security
+
+### Data Protection
+- **Row Level Security**: Enabled on all Supabase tables
+- **API Authentication**: Service role key for backend operations
+- **User Data**: Encrypted at rest and in transit
+- **Push Notifications**: APNS secure delivery
+
+### Access Control
+- **Database Access**: Service role key only
+- **API Access**: Public read-only endpoints
+- **User Data**: User-specific access through Supabase auth
+
+## 📝 Development
+
+### Local Development
+```bash
 # Install dependencies
 pip install -r requirements.txt
 
-# Configure environment
-cp env.example .env
-# Edit .env with your Supabase credentials
+# Run locally
+python backend/services/fpl_monitor_enhanced_production.py
 
-# Run the service
-python -m backend.main
+# Test API
+curl http://localhost:8000/
 ```
 
-### iOS App Setup
+### Testing
 ```bash
-# Open in Xcode
-open ios/FPLMonitor/FPLMonitor.xcodeproj
-
-# Update API URL in APIManager.swift
-# Build and run on simulator/device
-```
-
-## 🏗️ Architecture
-
-```
-FPL API → DigitalOcean Server → Supabase Database → REST API → iOS App
-```
-
-- **Backend**: FastAPI with PostgreSQL (Supabase)
-- **Frontend**: SwiftUI iOS app
-- **Infrastructure**: DigitalOcean cloud deployment
-- **Monitoring**: 24/7 real-time FPL data monitoring
-
-## 📁 Project Structure
-
-```
-fpl-monitor/
-├── 📱 ios/                          # iOS Mobile App
-│   └── FPLMonitor/
-│       ├── FPLMonitor.xcodeproj/    # Xcode project
-│       └── FPLMonitor/              # Swift source code
-│           ├── FPLMonitorApp.swift  # App entry point
-│           ├── ContentView.swift    # Main view
-│           ├── Managers/            # API & Notification managers
-│           ├── Models/              # Data models
-│           └── Views/               # SwiftUI views
-│
-├── 🐍 backend/                      # Backend Services
-│   ├── api/                         # API routes
-│   ├── config/                      # Configuration
-│   ├── models/                      # Data models
-│   ├── services/                    # Core services
-│   └── main.py                      # Application entry point
-│
-├── 🗄️ database/                     # Database Schemas
-│   ├── schema.sql                   # Production schema
-│   └── supabase_schema.sql          # Supabase schema
-│
-├── 🚀 deployment/                   # Production Deployment
-│   ├── Dockerfile                   # Container configuration
-│   ├── requirements.txt             # Dependencies
-│   └── deploy.sh                    # Deployment script
-│
-├── 🧪 tests/                        # All Testing
-│   ├── backend/                     # Backend tests
-│   ├── ios/                         # iOS tests
-│   └── integration/                 # Integration tests
-│
-├── 📚 docs/                         # Documentation
-│   ├── README.md                    # This file
-│   ├── API.md                       # API documentation
-│   └── DEPLOYMENT.md                # Deployment guide
-│
-└── 🔧 scripts/                      # Utility Scripts
-    ├── setup/                       # Setup scripts
-    ├── maintenance/                 # Maintenance scripts
-    └── tools/                       # Development tools
-```
-
-## 📊 Features
-
-### Real-time Monitoring
-- **Status Changes**: Player injuries, suspensions (every hour)
-- **Price Changes**: Player price movements (during price windows)
-- **Bonus Points**: Final bonus points (every 5 minutes)
-- **Live Matches**: Goals, assists, cards, clean sheets (when active)
-
-### iOS App Features
-- **Real-time Notifications**: Push notifications for FPL events
-- **Player Search**: Find and track specific players
-- **Analytics Dashboard**: View engagement and usage statistics
-- **Settings Management**: Customize notification preferences
-- **Modern UI**: Clean, intuitive SwiftUI interface
-
-### Backend Features
-- **RESTful API**: Complete API for mobile app consumption
-- **WebSocket Support**: Real-time communication
-- **Database Integration**: Supabase PostgreSQL with 736 players, 20 teams
-- **Push Notifications**: iOS APNs integration
-- **Analytics**: User engagement and usage tracking
-
-## 🔧 API Endpoints
-
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/` | GET | Health check |
-| `/api/v1/monitoring/status` | GET | Monitoring status |
-| `/api/v1/notifications` | GET | FPL notifications |
-| `/api/v1/players/search` | GET | Search players |
-| `/api/v1/fpl/current-gameweek` | GET | Current gameweek info |
-| `/api/v1/fpl/teams` | GET | All Premier League teams |
-| `/api/v1/fpl/players` | GET | All players with filtering |
-
-## 🚀 Deployment
-
-### DigitalOcean Deployment
-```bash
-# Deploy to DigitalOcean
-./deployment/deploy.sh
-
-# Check service status
-ssh root@your-server "systemctl status fpl-monitor"
-
-# View logs
-ssh root@your-server "tail -f /opt/fpl-monitor/logs/fpl_monitor.log"
-```
-
-### Docker Deployment
-```bash
-# Build and run with Docker
-docker build -t fpl-monitor .
-docker run -p 8000:8000 fpl-monitor
-```
-
-## 🧪 Testing
-
-```bash
-# Run backend tests
-python -m pytest tests/backend/
-
-# Run integration tests
-python -m pytest tests/integration/
-
-# Run all tests
+# Run tests
 python -m pytest tests/
+
+# Test specific components
+python tests/backend/test_supabase_connection.py
+python tests/backend/test_local_endpoints.py
 ```
 
-## 📱 iOS Development
+## 📚 Additional Documentation
 
-### Requirements
-- Xcode 15+
-- iOS 17.0+
-- Swift 5.9+
-
-### Setup
-1. Open `ios/FPLMonitor/FPLMonitor.xcodeproj` in Xcode
-2. Update API URL in `APIManager.swift`
-3. Configure push notifications in `NotificationManager.swift`
-4. Build and run on simulator or device
-
-## 🔐 Environment Variables
-
-Create a `.env` file with the following variables:
-
-```env
-# Database
-SUPABASE_URL=your_supabase_url
-SUPABASE_ANON_KEY=your_supabase_anon_key
-DATABASE_URL=your_database_url
-
-# Push Notifications
-APNS_BUNDLE_ID=com.yourcompany.fplmonitor
-APNS_KEY_ID=your_apns_key_id
-APNS_TEAM_ID=your_apns_team_id
-APNS_KEY_PATH=path/to/your/key.p8
-
-# Server
-DEBUG=false
-HOST=0.0.0.0
-PORT=8000
-```
+- **API Documentation**: `docs/API.md`
+- **Deployment Guide**: `docs/DEPLOYMENT.md`
+- **Project Structure**: `docs/PROJECT_STRUCTURE.md`
+- **Price Monitoring Analysis**: `docs/PRICE_MONITORING_ANALYSIS.md`
 
 ## 🤝 Contributing
 
 1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
+2. Create a feature branch
+3. Make your changes
+4. Test thoroughly
+5. Submit a pull request
 
 ## 📄 License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+This project is licensed under the MIT License - see the LICENSE file for details.
 
 ## 🆘 Support
 
-- **Documentation**: Check the `docs/` folder for detailed guides
-- **Issues**: Open an issue on GitHub
-- **Discussions**: Use GitHub Discussions for questions
-
-## 🎯 Roadmap
-
-- [ ] Android app development
-- [ ] Web dashboard
-- [ ] Advanced analytics
-- [ ] Team management features
-- [ ] League integration
-- [ ] Historical data analysis
+For support and questions:
+- Create an issue in the repository
+- Check the troubleshooting section
+- Review the logs for error details
 
 ---
 
-**Built with ❤️ using SwiftUI + FastAPI + Supabase + DigitalOcean**
+**Last Updated**: September 12, 2025
+**Version**: 3.0.0
+**Status**: Production Ready

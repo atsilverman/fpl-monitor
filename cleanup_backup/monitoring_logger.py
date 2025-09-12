@@ -28,7 +28,7 @@ class MonitoringLogger:
         try:
             self.db_conn = psycopg2.connect(os.getenv('DATABASE_URL'))
         except Exception as e:
-            print(f"❌ Failed to connect to database for monitoring logger: {e}")
+            print(f"Failed to connect to database for monitoring logger: {e}")
             self.db_conn = None
     
     def _execute_query(self, query: str, params: tuple = None) -> Optional[Any]:
@@ -45,7 +45,7 @@ class MonitoringLogger:
                     self.db_conn.commit()
                     return cur.fetchone()[0] if cur.rowcount > 0 else None
         except Exception as e:
-            print(f"❌ Database query failed: {e}")
+            print(f"Database query failed: {e}")
             return None
     
     def log_heartbeat(self, run_type: str = "heartbeat", metadata: Dict[str, Any] = None) -> Optional[int]:
@@ -179,7 +179,7 @@ class MonitoringLogger:
                 columns = [desc[0] for desc in cur.description]
                 return [dict(zip(columns, row)) for row in cur.fetchall()]
         except Exception as e:
-            print(f"❌ Failed to get services status: {e}")
+            print(f"Failed to get services status: {e}")
             return []
     
     def close(self):
@@ -197,10 +197,10 @@ def check_monitoring_status():
         for service in services:
             health_emoji = {
                 'running': '🟢',
-                'recent': '🟢', 
-                'stale': '🟡',
-                'offline': '🔴'
-            }.get(service['health_status'], '❓')
+                'recent': 'ONLINE', 
+                'stale': 'STALE',
+                'offline': 'OFFLINE'
+            }.get(service['health_status'], 'UNKNOWN')
             
             print(f"{health_emoji} {service['service_name']} - {service['health_status']}")
             print(f"   Last run: {service['started_at']}")
