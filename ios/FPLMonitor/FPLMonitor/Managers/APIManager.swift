@@ -12,6 +12,9 @@ class APIManager: ObservableObject {
     let baseURL = "http://localhost:8000/api/v1" // Local proxy (forwards to production)
     private var cancellables = Set<AnyCancellable>()
     
+    // Custom URLSession configuration to handle socket options gracefully
+    private lazy var urlSession: URLSession = NetworkManager.createOptimizedURLSession()
+    
     // MARK: - Fetch Notifications
     func fetchNotifications(completion: @escaping (Result<[FPLNotification], Error>) -> Void) {
         guard let url = URL(string: "\(baseURL)/notifications") else {
@@ -19,7 +22,7 @@ class APIManager: ObservableObject {
             return
         }
         
-        URLSession.shared.dataTask(with: url) { data, response, error in
+        urlSession.dataTask(with: url) { data, response, error in
             if let error = error {
                 completion(.failure(error))
                 return
@@ -46,7 +49,7 @@ class APIManager: ObservableObject {
             return
         }
         
-        URLSession.shared.dataTask(with: url) { data, response, error in
+        urlSession.dataTask(with: url) { data, response, error in
             if let error = error {
                 completion(.failure(error))
                 return
@@ -84,7 +87,7 @@ class APIManager: ObservableObject {
             return
         }
         
-        URLSession.shared.dataTask(with: request) { data, response, error in
+        urlSession.dataTask(with: request) { data, response, error in
             if let error = error {
                 completion(.failure(error))
                 return
@@ -114,7 +117,7 @@ class APIManager: ObservableObject {
             return
         }
         
-        URLSession.shared.dataTask(with: request) { data, response, error in
+        urlSession.dataTask(with: request) { data, response, error in
             if let error = error {
                 completion(.failure(error))
                 return
@@ -131,7 +134,7 @@ class APIManager: ObservableObject {
             return
         }
         
-        URLSession.shared.dataTask(with: url) { data, response, error in
+        urlSession.dataTask(with: url) { data, response, error in
             if let error = error {
                 completion(.failure(error))
                 return
@@ -169,7 +172,7 @@ class APIManager: ObservableObject {
             return
         }
         
-        URLSession.shared.dataTask(with: request) { data, response, error in
+        urlSession.dataTask(with: request) { data, response, error in
             if let error = error {
                 completion(.failure(error))
                 return

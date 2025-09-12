@@ -190,11 +190,11 @@ struct ManagerSearchStepView: View {
     var body: some View {
         VStack(spacing: 20) {
             VStack(spacing: 16) {
-                Text("Find Your Manager")
+                Text("Find Your Team")
                     .font(.largeTitle)
                     .fontWeight(.bold)
                 
-                Text("Search for your FPL manager to get personalized notifications")
+                Text("Search for your FPL team to get personalized notifications")
                     .font(.title3)
                     .foregroundColor(.secondary)
                     .multilineTextAlignment(.center)
@@ -218,6 +218,7 @@ struct ManagerSearchStepView: View {
             .cornerRadius(12)
             
             // Search Results
+            let _ = print("🌐 OnboardingView: UI State - isLoading: \(fplAPI.isLoading), searchResults.count: \(searchResults.count), searchQuery: '\(searchQuery)'")
             if fplAPI.isLoading {
                 ProgressView("Searching...")
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -234,6 +235,9 @@ struct ManagerSearchStepView: View {
                             }
                         }
                     }
+                }
+                .onAppear {
+                    print("🌐 OnboardingView: Displaying \(searchResults.count) search results")
                 }
             } else if !searchQuery.isEmpty {
                 VStack(spacing: 12) {
@@ -258,17 +262,27 @@ struct ManagerSearchStepView: View {
     }
     
     private func performSearch() {
+        print("🌐 OnboardingView: performSearch() called with query: '\(searchQuery)'")
         guard !searchQuery.isEmpty else {
+            print("🌐 OnboardingView: Empty query, clearing results")
             searchResults = []
             return
         }
         
+        print("🌐 OnboardingView: Starting search for ID: \(Int(searchQuery) ?? 0)")
         fplAPI.searchManager(byID: Int(searchQuery) ?? 0)
             .receive(on: DispatchQueue.main)
             .sink(
-                receiveCompletion: { _ in },
+                receiveCompletion: { completion in
+                    if case .failure(let error) = completion {
+                        print("❌ OnboardingView: Search failed: \(error)")
+                    }
+                },
                 receiveValue: { results in
+                    print("🌐 OnboardingView: Received \(results.count) search results")
+                    print("🌐 OnboardingView: Results: \(results.map { "\($0.playerName) (ID: \($0.id))" })")
                     searchResults = results
+                    print("🌐 OnboardingView: searchResults updated, count: \(searchResults.count)")
                 }
             )
             .store(in: &fplAPI.cancellables)
@@ -286,7 +300,6 @@ struct LeagueSelectionStepView: View {
     var body: some View {
         VStack(spacing: 20) {
             headerSection
-            managerInfoSection
             leaguesSection
             Spacer()
         }
@@ -311,24 +324,6 @@ struct LeagueSelectionStepView: View {
         }
     }
     
-    
-    @ViewBuilder
-    private var managerInfoSection: some View {
-        if let manager = selectedManager {
-            VStack(spacing: 8) {
-                Text("Manager: \(manager.playerName)")
-                    .font(.headline)
-                    .foregroundColor(.fplPrimary)
-                
-                Text("ID: \(manager.id)")
-                    .font(.subheadline)
-                    .foregroundColor(.secondary)
-            }
-            .padding()
-            .background(Color.fplPrimary.opacity(0.1))
-            .cornerRadius(12)
-        }
-    }
     
     
     private var leaguesSection: some View {

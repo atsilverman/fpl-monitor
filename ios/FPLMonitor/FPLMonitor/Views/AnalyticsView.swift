@@ -46,7 +46,7 @@ struct AnalyticsView: View {
                 }
                 .padding(.vertical)
             }
-            .navigationTitle("Analytics")
+            .navigationTitle("Stats")
             .navigationBarTitleDisplayMode(.large)
             .onAppear {
                 analyticsManager.fetchAnalyticsData(timeRange: selectedTimeRange)

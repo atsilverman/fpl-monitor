@@ -12,10 +12,11 @@ extension Color {
     static let fplPrimary = Color(red: 0.0, green: 0.4, blue: 0.8)      // FPL Blue
     static let fplSecondary = Color(red: 0.9, green: 0.1, blue: 0.1)    // FPL Red
     static let fplAccent = Color(red: 1.0, green: 0.8, blue: 0.0)       // Gold
-    static let fplBackground = Color(hex: "F8F8FA")                      // Light Gray Background
-    static let fplCard = Color(hex: "FFFFFF")                            // White Card Background
-    static let fplCardBorder = Color(hex: "E5E5E5")                      // Light Gray Border
-    static let fplText = Color.primary
+    static let fplBackground = Color(hex: "F8F9FD")                      // Light Blue Background
+    static let fplAppBackground = Color(hex: "EFF0F4")                   // Main App Background
+    static let fplCard = Color(hex: "F4F5F9")                            // Light Gray Card Background
+    static let fplCardBorder = Color(hex: "FFFFFF")                      // Pure White Border
+    static let fplText = Color(hex: "292D38")                            // Dark Text Color
     static let fplSubtext = Color.secondary
 }
 
@@ -58,6 +59,7 @@ struct ContentView: View {
                 OnboardingView()
             }
         }
+        .background(Color.fplAppBackground)
         .onAppear {
             print("🔍 ContentView: hasCompletedOnboarding = \(userManager.hasCompletedOnboarding)")
             print("🔍 ContentView: currentManager = \(userManager.currentManager?.playerName ?? "nil")")
@@ -70,41 +72,133 @@ struct MainTabView: View {
     @EnvironmentObject private var notificationManager: NotificationManager
     @EnvironmentObject private var analyticsManager: AnalyticsManager
     @EnvironmentObject private var userManager: UserManager
+    @State private var showingSettings = false
+    @State private var selectedTab = 0
     
     var body: some View {
-        TabView {
-            // Notifications Tab
-            NotificationTimelineView()
-                .tabItem {
-                    Image(systemName: "bell.fill")
-                    Text("Notifications")
+        ZStack {
+            // Main Content
+            Group {
+                switch selectedTab {
+                case 0:
+                    NotificationTimelineView()
+                case 1:
+                    LeagueView()
+                case 2:
+                    AnalyticsView()
+                default:
+                    NotificationTimelineView()
                 }
+            }
+            .background(Color.fplAppBackground)
+            .onAppear {
+                analyticsManager.trackEvent(.appOpen)
+            }
             
-            // Standings Tab
-            LeagueView()
-                .tabItem {
-                    Image(systemName: "chart.line.uptrend.xyaxis")
-                    Text("Standings")
+            // Floating Settings Button
+            VStack {
+                HStack {
+                    Spacer()
+                    Button(action: {
+                        showingSettings = true
+                    }) {
+                        Image(systemName: "person.crop.circle.fill")
+                            .font(.title2)
+                            .foregroundColor(.fplText)
+                    }
+                    .padding(.trailing, 20)
                 }
+                .padding(.top, 50)
+                Spacer()
+            }
             
-            // Analytics Tab
-            AnalyticsView()
-                .tabItem {
-                    Image(systemName: "chart.bar.fill")
-                    Text("Analytics")
-                }
-            
-            // Settings Tab
+            // Floating Dock
+            VStack {
+                Spacer()
+                FloatingDock(selectedTab: $selectedTab)
+                    .padding(.bottom, 20)
+            }
+        }
+        .sheet(isPresented: $showingSettings) {
             SettingsView()
-                .tabItem {
-                    Image(systemName: "gear")
-                    Text("Settings")
+                .environmentObject(notificationManager)
+                .environmentObject(analyticsManager)
+                .environmentObject(userManager)
+        }
+    }
+}
+
+struct FloatingDock: View {
+    @Binding var selectedTab: Int
+    
+    var body: some View {
+        ZStack {
+            // Background
+            RoundedRectangle(cornerRadius: 25)
+                .fill(.ultraThinMaterial)
+                .shadow(color: .black.opacity(0.15), radius: 10, x: 0, y: 5)
+                .frame(width: 200, height: 50)
+            
+            // Sliding indicator - positioned behind the tabs
+            HStack(spacing: 0) {
+                RoundedRectangle(cornerRadius: 20)
+                    .fill(Color.fplPrimary)
+                    .frame(width: 60, height: 40)
+                    .offset(x: CGFloat(selectedTab) * 66.67 + 3.33)
+                    .animation(.spring(response: 0.3, dampingFraction: 0.7), value: selectedTab)
+                Spacer()
+            }
+            .frame(width: 200)
+            .padding(.horizontal, 5)
+            
+            // Tab items container - on top of the indicator
+            HStack(spacing: 0) {
+                DockTabItem(
+                    icon: "calendar.day.timeline.left",
+                    isSelected: selectedTab == 0
+                ) {
+                    withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                        selectedTab = 0
+                    }
                 }
+                
+                DockTabItem(
+                    icon: "chart.line.uptrend.xyaxis",
+                    isSelected: selectedTab == 1
+                ) {
+                    withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                        selectedTab = 1
+                    }
+                }
+                
+                DockTabItem(
+                    icon: "chart.bar.fill",
+                    isSelected: selectedTab == 2
+                ) {
+                    withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                        selectedTab = 2
+                    }
+                }
+            }
+            .frame(width: 200)
         }
-        .accentColor(.fplPrimary)
-        .onAppear {
-            analyticsManager.trackEvent(.appOpen)
+        .scaleEffect(1.15) // Scale entire dock by 15%
+    }
+}
+
+struct DockTabItem: View {
+    let icon: String
+    let isSelected: Bool
+    let action: () -> Void
+    
+    var body: some View {
+        Button(action: action) {
+            Image(systemName: icon)
+                .font(.system(size: 18, weight: .medium))
+                .foregroundColor(isSelected ? .white : .fplSubtext)
+                .frame(width: 66.67, height: 40)
         }
+        .buttonStyle(PlainButtonStyle())
     }
 }
 

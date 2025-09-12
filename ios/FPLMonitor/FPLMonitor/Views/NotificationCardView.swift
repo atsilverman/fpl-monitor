@@ -9,93 +9,146 @@ import SwiftUI
 
 struct NotificationCardView: View {
     let notification: FPLNotification
+    @Binding var isShowingTimestamps: Bool
+    @Binding var dragOffset: CGFloat
     @State private var isPressed = false
     
     var body: some View {
-        HStack(spacing: 16) {
-            // Left side: Player details (with small badge inline)
-            VStack(alignment: .leading, spacing: 6) {
-                playerInfoView
-                badgesView
-            }
-            .padding(.leading, 11)
-            
-            Spacer()
-            
-            // Right side: Points and score category
-            VStack(alignment: .trailing, spacing: 6) {
-                // Point change (primary) with enhanced contrast
-                HStack(spacing: 6) {
-                    ZStack {
-                        Circle()
-                            .fill(notification.pointsChange > 0 ? 
-                                  Color.green.opacity(0.2) : 
-                                  Color.red.opacity(0.2))
-                            .frame(width: 24, height: 24)
-                        
-                        Image(systemName: notification.pointsChange > 0 ? "arrow.up.circle.fill" : "arrow.down.circle.fill")
-                            .font(.caption)
-                            .foregroundColor(notification.pointsChange > 0 ? .green : .red)
-                    }
-                    
-                    Text("\(notification.pointsChange > 0 ? "+" : "")\(notification.pointsChange)")
-                        .font(.system(size: 20, weight: .bold))
-                        .foregroundColor(notification.pointsChange > 0 ? .green : notification.pointsChange < 0 ? .red : .primary)
+        ZStack {
+            // Main card content
+            HStack(spacing: 8) {
+                // Left side: Player details (with small badge inline) - pushed to left edge
+                VStack(alignment: .leading, spacing: 6) {
+                    playerInfoView
+                    badgesView
                 }
-                
-                // Score category below points
-                Text(notification.pointsCategory)
-                    .font(.caption)
-                    .fontWeight(.bold)
-                    .foregroundColor(.black)
-                
-            }
-        }
-        .padding(.horizontal, 20)
-        .padding(.vertical, 16)
-        .background(
-            RoundedRectangle(cornerRadius: 16)
-                .fill(Color.fplCard)
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 16)
-                .stroke(
-                    notification.isRead ? Color.clear : Color.fplCardBorder, 
-                    lineWidth: 1
-                )
-        )
-        .shadow(
-            color: Color.black.opacity(0.05), 
-            radius: 2, 
-            x: 0, 
-            y: 1
-        )
-        .overlay(
-            // Color tab on the left edge
-            HStack {
-                        Rectangle()
-                            .fill(notification.pointsChange > 0 ? 
-                                  Color.green.opacity(0.2) : 
-                                  notification.pointsChange < 0 ? 
-                                  Color.red.opacity(0.2) : 
-                                  Color.gray)
-                    .frame(width: 11)
+                .padding(.leading, 4)
                 
                 Spacer()
+                
+                // Right side: Points and score category - pushed to right edge
+                VStack(alignment: .trailing, spacing: 2) {
+                    // Point change (primary) with enhanced contrast and drop shadow
+                    HStack(alignment: .center, spacing: 6) {
+                        Image(systemName: notification.pointsChange > 0 ? "arrow.up.circle.fill" : "arrow.down.circle.fill")
+                            .font(.system(size: 15))
+                            .foregroundColor(notification.pointsChange > 0 ? .green : .red)
+                            .offset(y: 1)
+                            .shadow(color: .black.opacity(0.1), radius: 1, x: 0, y: 1)
+                        
+                        Text("\(notification.pointsChange > 0 ? "+" : "")\(notification.pointsChange)")
+                            .font(.system(size: 20, weight: .bold))
+                            .foregroundColor(notification.pointsChange > 0 ? .green : notification.pointsChange < 0 ? .red : .fplText)
+                            .shadow(color: .black.opacity(0.1), radius: 1, x: 0, y: 1)
+                    }
+                    
+                    // Score category below points
+                    Text(notification.pointsCategory)
+                        .font(.caption)
+                        .fontWeight(.bold)
+                        .foregroundColor(.fplText)
+                    
+                }
+                .padding(.trailing, 4)
             }
-            .clipShape(RoundedRectangle(cornerRadius: 16))
-        )
-        .scaleEffect(isPressed ? 0.98 : 1.0)
-        .animation(.easeInOut(duration: 0.1), value: isPressed)
-        .onTapGesture {
-            withAnimation(.easeInOut(duration: 0.1)) {
-                isPressed = true
-            }
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+            .padding(.horizontal, 16)
+            .padding(.vertical, 12.8)
+            .background(
+                RoundedRectangle(cornerRadius: 16)
+                    .fill(Color.fplCard)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 16)
+                            .stroke(Color.fplCardBorder, lineWidth: 1)
+                    )
+            )
+            .shadow(
+                color: Color.black.opacity(0.05), 
+                radius: 2, 
+                x: 0, 
+                y: 1
+            )
+            .overlay(
+                // Color tab on the right edge with gradient extending quarter way
+                GeometryReader { geometry in
+                    HStack {
+                        Spacer()
+                        
+                        Rectangle()
+                            .fill(
+                                LinearGradient(
+                                    gradient: Gradient(colors: [gradientStartColor, gradientEndColor]),
+                                    startPoint: .leading,
+                                    endPoint: .trailing
+                                )
+                            )
+                            .frame(width: geometry.size.width * 0.20)
+                    }
+                }
+                .clipShape(RoundedRectangle(cornerRadius: 16))
+            )
+            .offset(x: dragOffset)
+            .onTapGesture {
                 withAnimation(.easeInOut(duration: 0.1)) {
-                    isPressed = false
+                    isPressed = true
+                }
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                    withAnimation(.easeInOut(duration: 0.1)) {
+                        isPressed = false
+                    }
                 }
             }
+            
+            // Timestamp overlay - appears underneath when swiped
+            if isShowingTimestamps {
+                HStack {
+                    Spacer()
+                    
+                    VStack(alignment: .trailing, spacing: 2) {
+                        Text(formatTimestamp(notification.timestamp))
+                            .font(.caption)
+                            .fontWeight(.medium)
+                            .foregroundColor(.secondary)
+                    }
+                    .padding(.trailing, 4) // Align with main card's right edge
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .background(
+                    RoundedRectangle(cornerRadius: 16)
+                        .fill(Color.fplCard.opacity(0.9))
+                )
+                .offset(x: dragOffset)
+            }
+        }
+        .scaleEffect(isPressed ? 0.98 : 1.0)
+        .animation(.easeInOut(duration: 0.1), value: isPressed)
+    }
+    
+    // MARK: - Helper Functions
+    
+    private func formatTimestamp(_ timestamp: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.dateStyle = .short
+        formatter.timeStyle = .short
+        return formatter.string(from: timestamp)
+    }
+    
+    private var gradientStartColor: Color {
+        if notification.pointsChange > 0 {
+            return Color.green.opacity(0.0)
+        } else if notification.pointsChange < 0 {
+            return Color.red.opacity(0.0)
+        } else {
+            return Color.gray.opacity(0.0)
+        }
+    }
+    
+    private var gradientEndColor: Color {
+        if notification.pointsChange > 0 {
+            return Color.green.opacity(0.15)
+        } else if notification.pointsChange < 0 {
+            return Color.red.opacity(0.15)
+        } else {
+            return Color.gray.opacity(0.15)
         }
     }
     
@@ -105,7 +158,7 @@ struct NotificationCardView: View {
         HStack(spacing: 6) {
             Text(notification.player)
                 .font(.system(size: 16, weight: .semibold))
-                .foregroundColor(.primary)
+                .foregroundColor(.fplText)
                 .lineLimit(1)
             
             // Small team badge after player name
@@ -124,42 +177,52 @@ struct NotificationCardView: View {
     
     private var badgesView: some View {
         HStack(spacing: 6) {
-            TSBadge(
-                percentage: notification.overallOwnership,
-                isOwned: notification.isOwned
-            )
+            // Gameweek points - now with background
+            Text("\(notification.gameweekPoints) pts")
+                .font(.caption2)
+                .fontWeight(.bold)
+                .foregroundColor(.fplText)
+                .padding(.horizontal, 6)
+                .padding(.vertical, 2)
+                .background(Color.gray.opacity(0.1))
+                .clipShape(RoundedRectangle(cornerRadius: 4))
             
             Text("|")
                 .font(.caption2)
                 .foregroundColor(.gray)
             
-            Text("\(notification.totalPoints) pts")
-                .font(.caption2)
-                .foregroundColor(.gray)
+            // TSB - now without background
+            HStack(spacing: 3) {
+                Image(systemName: "person.2.fill")
+                    .font(.caption2)
+                    .foregroundColor(.gray)
+                
+                Text("\(Int(notification.overallOwnership))%")
+                    .font(.caption2)
+                    .foregroundColor(.gray)
+            }
         }
     }
 }
 
 struct TSBadge: View {
     let percentage: Double
-    let isOwned: Bool
     
     var body: some View {
         HStack(spacing: 3) {
-            if isOwned {
-                Image(systemName: "person.2.fill")
-                    .font(.caption2)
-                    .foregroundColor(.gray)
-            }
-            
-            Text("TSB")
-                .font(.caption2.weight(.medium))
-                .foregroundColor(.gray)
+            // Person icon and percentage - show ownership percentage
+            Image(systemName: "person.2.fill")
+                .font(.caption2)
+                .foregroundColor(.fplText)
             
             Text("\(Int(percentage))%")
                 .font(.caption2.weight(.bold))
-                .foregroundColor(.gray)
+                .foregroundColor(.fplText)
         }
+        .padding(.horizontal, 6)
+        .padding(.vertical, 2)
+        .background(Color.gray.opacity(0.1))
+        .clipShape(RoundedRectangle(cornerRadius: 4))
     }
 }
 
@@ -175,89 +238,14 @@ struct OwnedBadge: View {
 
 #Preview {
     VStack(spacing: 16) {
-        // Owned player - Goal (Forest Green) - Real data: Erling Haaland
-        NotificationCardView(notification: FPLNotification(
-            title: "⚽ Goal!",
-            body: "Erling Haaland scored for Manchester City",
-            type: .goals,
-            player: "Erling Haaland",
-            team: "Manchester City",
-            teamAbbreviation: "MCI",
-            points: 4,
-            pointsChange: +4,
-            pointsCategory: "Goal",
-            totalPoints: 24,
-            overallOwnership: 32.2,
-            isOwned: true,
-            timestamp: Date(),
-            homeTeam: "Manchester City",
-            awayTeam: "Arsenal",
-            fixture: "MCI vs ARS",
-            impact: .high
-        ))
-        
-        // Non-owned player - Assist (Ocean Blue) - Real data: João Pedro
-        NotificationCardView(notification: FPLNotification(
-            title: "🎯 Assist!",
-            body: "João Pedro provided an assist",
-            type: .assists,
-            player: "João Pedro",
-            team: "Chelsea",
-            teamAbbreviation: "CHE",
-            points: 3,
-            pointsChange: +3,
-            pointsCategory: "Assist",
-            totalPoints: 26,
-            overallOwnership: 63.8,
-            isOwned: false,
-            timestamp: Calendar.current.date(byAdding: .hour, value: -2, to: Date()) ?? Date(),
-            homeTeam: "Chelsea",
-            awayTeam: "Arsenal",
-            fixture: "CHE vs ARS",
-            impact: .medium
-        ))
-        
-        // Owned player - Clean Sheet (Purple) - Real data: Riccardo Calafiori
-        NotificationCardView(notification: FPLNotification(
-            title: "🛡️ Clean Sheet!",
-            body: "Riccardo Calafiori kept a clean sheet",
-            type: .cleanSheets,
-            player: "Riccardo Calafiori",
-            team: "Arsenal",
-            teamAbbreviation: "ARS",
-            points: 4,
-            pointsChange: +4,
-            pointsCategory: "Clean Sheet",
-            totalPoints: 28,
-            overallOwnership: 11.3,
-            isOwned: true,
-            timestamp: Calendar.current.date(byAdding: .day, value: -1, to: Date()) ?? Date(),
-            homeTeam: "Arsenal",
-            awayTeam: "Chelsea",
-            fixture: "ARS vs CHE",
-            impact: .medium
-        ))
-        
-        // Non-owned player - Red Card (Red) - Real data: Trevoh Chalobah
-        NotificationCardView(notification: FPLNotification(
-            title: "🔴 Red Card",
-            body: "Trevoh Chalobah received a red card",
-            type: .redCards,
-            player: "Trevoh Chalobah",
-            team: "Chelsea",
-            teamAbbreviation: "CHE",
-            points: -3,
-            pointsChange: -3,
-            pointsCategory: "Red Card",
-            totalPoints: 27,
-            overallOwnership: 6.5,
-            isOwned: false,
-            timestamp: Calendar.current.date(byAdding: .day, value: -2, to: Date()) ?? Date(),
-            homeTeam: "Chelsea",
-            awayTeam: "Arsenal",
-            fixture: "CHE vs ARS",
-            impact: .high
-        ))
+        // Show first 4 realistic notifications
+        ForEach(Array(RealisticNotificationData.sampleNotifications.prefix(4))) { notification in
+            NotificationCardView(
+                notification: notification,
+                isShowingTimestamps: .constant(false),
+                dragOffset: .constant(0)
+            )
+        }
     }
     .padding()
     .background(Color(.systemGroupedBackground))

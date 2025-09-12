@@ -28,7 +28,7 @@ struct LeagueView: View {
                         
                         Text("Error loading standings")
                             .font(.headline)
-                            .foregroundColor(.primary)
+                            .foregroundColor(.fplText)
                         
                         Text(errorMessage)
                             .font(.subheadline)
@@ -43,14 +43,14 @@ struct LeagueView: View {
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                 } else if allLeagues.isEmpty {
                     VStack(spacing: 20) {
-                        Image(systemName: "person.3.circle")
+                        Image(systemName: "person.3.fill")
                             .font(.system(size: 60))
                             .foregroundColor(.secondary)
                         
                         Text("No Leagues Found")
                             .font(.title2)
                             .fontWeight(.semibold)
-                            .foregroundColor(.primary)
+                            .foregroundColor(.fplText)
                         
                         Text("This manager might not be in any mini leagues")
                             .font(.body)
@@ -122,7 +122,7 @@ struct LeagueStandingsRowView: View {
                 Text(league.name)
                     .font(.headline)
                     .fontWeight(.semibold)
-                    .foregroundColor(.primary)
+                    .foregroundColor(.fplText)
                     .lineLimit(2)
                 
                 Text("\(league.memberCount) members")
@@ -325,8 +325,9 @@ struct RankChangeText: View {
             h2h: []
         )
     )
-    userManager.setManager(manager)
-    
     return LeagueView()
         .environmentObject(userManager)
+        .onAppear {
+            userManager.setManager(manager)
+        }
 }

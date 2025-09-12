@@ -27,7 +27,7 @@ struct TeamBadgeView: View {
                     .resizable()
                     .aspectRatio(contentMode: .fit)
                     .onAppear {
-                        print("✅ Successfully loaded badge: \(badgeImageName)")
+                        // Badge loaded successfully
                     }
             } else {
                 // Fallback: Show team abbreviation in a rounded rectangle
@@ -92,7 +92,6 @@ struct TeamBadgeView: View {
         
         let mappedName = teamMapping[teamName] ?? teamName
         let result = "\(mappedName)_badge"
-        print("Team: '\(teamName)' -> Badge: '\(result)'")
         return result
     }
 }

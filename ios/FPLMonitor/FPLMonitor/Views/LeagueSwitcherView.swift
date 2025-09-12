@@ -15,7 +15,7 @@ struct LeagueSwitcherView: View {
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                 } else if miniLeagues.isEmpty {
                     VStack(spacing: 16) {
-                        Image(systemName: "person.3.circle")
+                        Image(systemName: "person.3.fill")
                             .font(.system(size: 50))
                             .foregroundColor(.secondary)
                         

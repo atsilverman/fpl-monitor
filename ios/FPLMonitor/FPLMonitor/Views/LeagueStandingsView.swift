@@ -23,7 +23,7 @@ struct LeagueStandingsView: View {
                         
                         Text("Error loading standings")
                             .font(.headline)
-                            .foregroundColor(.primary)
+                            .foregroundColor(.fplText)
                         
                         Text(errorMessage)
                             .font(.subheadline)
@@ -57,7 +57,7 @@ struct LeagueStandingsView: View {
                     }
                 } else {
                     VStack(spacing: 16) {
-                        Image(systemName: "person.3.circle")
+                        Image(systemName: "person.3.fill")
                             .font(.system(size: 50))
                             .foregroundColor(.secondary)
                         
@@ -108,7 +108,7 @@ struct LeagueHeaderView: View {
                     Text(league.name)
                         .font(.title2)
                         .fontWeight(.bold)
-                        .foregroundColor(.primary)
+                        .foregroundColor(.fplText)
                     
                     if let currentPhase = league.currentPhase {
                         Text("\(league.memberCount) members • Phase \(currentPhase.phase)")

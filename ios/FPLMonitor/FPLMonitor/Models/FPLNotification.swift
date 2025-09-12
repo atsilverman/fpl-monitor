@@ -20,6 +20,8 @@ struct FPLNotification: Identifiable, Codable {
     let pointsChange: Int
     let pointsCategory: String
     let totalPoints: Int
+    let gameweekPoints: Int
+    let gameweek: Int
     let overallOwnership: Double
     let isOwned: Bool
     let timestamp: Date
@@ -29,7 +31,7 @@ struct FPLNotification: Identifiable, Codable {
     let fixture: String
     let impact: NotificationImpact
     
-    init(id: String = UUID().uuidString, title: String, body: String, type: NotificationType, player: String, team: String, teamAbbreviation: String, points: Int, pointsChange: Int, pointsCategory: String, totalPoints: Int, overallOwnership: Double = 0.0, isOwned: Bool = false, timestamp: Date = Date(), isRead: Bool = false, homeTeam: String, awayTeam: String, fixture: String, impact: NotificationImpact = .medium) {
+    init(id: String = UUID().uuidString, title: String, body: String, type: NotificationType, player: String, team: String, teamAbbreviation: String, points: Int, pointsChange: Int, pointsCategory: String, totalPoints: Int, gameweekPoints: Int, gameweek: Int, overallOwnership: Double = 0.0, isOwned: Bool = false, timestamp: Date = Date(), isRead: Bool = false, homeTeam: String, awayTeam: String, fixture: String, impact: NotificationImpact = .medium) {
         self.id = id
         self.title = title
         self.body = body
@@ -41,6 +43,8 @@ struct FPLNotification: Identifiable, Codable {
         self.pointsChange = pointsChange
         self.pointsCategory = pointsCategory
         self.totalPoints = totalPoints
+        self.gameweekPoints = gameweekPoints
+        self.gameweek = gameweek
         self.overallOwnership = overallOwnership
         self.isOwned = isOwned
         self.timestamp = timestamp
