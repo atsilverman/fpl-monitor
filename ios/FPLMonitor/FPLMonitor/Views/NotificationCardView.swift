@@ -13,15 +13,16 @@ struct NotificationCardView: View {
     
     var body: some View {
         HStack(spacing: 16) {
-            // Left side: Player details only
+            // Left side: Player details (with small badge inline)
             VStack(alignment: .leading, spacing: 6) {
                 playerInfoView
                 badgesView
             }
+            .padding(.leading, 11)
             
             Spacer()
             
-            // Right side: Points and time
+            // Right side: Points and score category
             VStack(alignment: .trailing, spacing: 6) {
                 // Point change (primary) with enhanced contrast
                 HStack(spacing: 6) {
@@ -42,10 +43,11 @@ struct NotificationCardView: View {
                         .foregroundColor(notification.pointsChange > 0 ? .green : notification.pointsChange < 0 ? .red : .primary)
                 }
                 
-                // Total points (secondary)
-                Text("\(notification.totalPoints) pts")
+                // Score category below points
+                Text(notification.pointsCategory)
                     .font(.caption)
-                    .foregroundColor(.secondary)
+                    .fontWeight(.bold)
+                    .foregroundColor(.black)
                 
             }
         }
@@ -63,10 +65,25 @@ struct NotificationCardView: View {
                 )
         )
         .shadow(
-            color: Color.black.opacity(0.08), 
-            radius: 4, 
+            color: Color.black.opacity(0.05), 
+            radius: 2, 
             x: 0, 
-            y: 2
+            y: 1
+        )
+        .overlay(
+            // Color tab on the left edge
+            HStack {
+                        Rectangle()
+                            .fill(notification.pointsChange > 0 ? 
+                                  Color.green.opacity(0.2) : 
+                                  notification.pointsChange < 0 ? 
+                                  Color.red.opacity(0.2) : 
+                                  Color.gray)
+                    .frame(width: 11)
+                
+                Spacer()
+            }
+            .clipShape(RoundedRectangle(cornerRadius: 16))
         )
         .scaleEffect(isPressed ? 0.98 : 1.0)
         .animation(.easeInOut(duration: 0.1), value: isPressed)
@@ -91,6 +108,14 @@ struct NotificationCardView: View {
                 .foregroundColor(.primary)
                 .lineLimit(1)
             
+            // Small team badge after player name
+            TeamBadgeView(
+                teamName: notification.team, 
+                isOwned: notification.isOwned, 
+                size: 18, 
+                teamAbbreviation: notification.teamAbbreviation
+            )
+            
             if notification.isOwned {
                 OwnedBadge()
             }
@@ -99,18 +124,18 @@ struct NotificationCardView: View {
     
     private var badgesView: some View {
         HStack(spacing: 6) {
-            Text(notification.pointsCategory)
-                .font(.caption)
-                .foregroundColor(.white)
-                .padding(.horizontal, 8)
-                .padding(.vertical, 2)
-                .background(notification.type.accentColor)
-                .cornerRadius(6)
-            
             TSBadge(
                 percentage: notification.overallOwnership,
                 isOwned: notification.isOwned
             )
+            
+            Text("|")
+                .font(.caption2)
+                .foregroundColor(.gray)
+            
+            Text("\(notification.totalPoints) pts")
+                .font(.caption2)
+                .foregroundColor(.gray)
         }
     }
 }
@@ -135,34 +160,22 @@ struct TSBadge: View {
                 .font(.caption2.weight(.bold))
                 .foregroundColor(.gray)
         }
-        .padding(.horizontal, 8)
-        .padding(.vertical, 3)
-        .background(Color.gray.opacity(0.2))
-        .cornerRadius(8)
     }
 }
 
 
 struct OwnedBadge: View {
     var body: some View {
-        HStack(spacing: 2) {
-            Image(systemName: "star.fill")
-                .font(.caption2)
-            Text("OWNED")
-                .font(.caption2.weight(.bold))
-        }
-        .foregroundColor(.white)
-        .padding(.horizontal, 6)
-        .padding(.vertical, 2)
-        .background(Color.blue)
-        .cornerRadius(6)
+        Image(systemName: "star.square.fill")
+            .font(.system(size: 19))
+            .foregroundStyle(.yellow)
     }
 }
 
 
 #Preview {
     VStack(spacing: 16) {
-        // Owned player - Goal (Forest Green)
+        // Owned player - Goal (Forest Green) - Real data: Erling Haaland
         NotificationCardView(notification: FPLNotification(
             title: "⚽ Goal!",
             body: "Erling Haaland scored for Manchester City",
@@ -173,8 +186,8 @@ struct OwnedBadge: View {
             points: 4,
             pointsChange: +4,
             pointsCategory: "Goal",
-            totalPoints: 156,
-            overallOwnership: 38.7,
+            totalPoints: 24,
+            overallOwnership: 32.2,
             isOwned: true,
             timestamp: Date(),
             homeTeam: "Manchester City",
@@ -183,66 +196,66 @@ struct OwnedBadge: View {
             impact: .high
         ))
         
-        // Non-owned player - Assist (Ocean Blue)
+        // Non-owned player - Assist (Ocean Blue) - Real data: João Pedro
         NotificationCardView(notification: FPLNotification(
             title: "🎯 Assist!",
-            body: "Kevin De Bruyne provided an assist",
+            body: "João Pedro provided an assist",
             type: .assists,
-            player: "Kevin De Bruyne",
-            team: "Manchester City",
-            teamAbbreviation: "MCI",
+            player: "João Pedro",
+            team: "Chelsea",
+            teamAbbreviation: "CHE",
             points: 3,
             pointsChange: +3,
             pointsCategory: "Assist",
-            totalPoints: 142,
-            overallOwnership: 52.3,
+            totalPoints: 26,
+            overallOwnership: 63.8,
             isOwned: false,
             timestamp: Calendar.current.date(byAdding: .hour, value: -2, to: Date()) ?? Date(),
-            homeTeam: "Manchester City",
+            homeTeam: "Chelsea",
             awayTeam: "Arsenal",
-            fixture: "MCI vs ARS",
+            fixture: "CHE vs ARS",
             impact: .medium
         ))
         
-        // Owned player - Clean Sheet (Purple)
+        // Owned player - Clean Sheet (Purple) - Real data: Riccardo Calafiori
         NotificationCardView(notification: FPLNotification(
             title: "🛡️ Clean Sheet!",
-            body: "Alisson kept a clean sheet",
+            body: "Riccardo Calafiori kept a clean sheet",
             type: .cleanSheets,
-            player: "Alisson",
-            team: "Liverpool",
-            teamAbbreviation: "LIV",
+            player: "Riccardo Calafiori",
+            team: "Arsenal",
+            teamAbbreviation: "ARS",
             points: 4,
             pointsChange: +4,
             pointsCategory: "Clean Sheet",
-            totalPoints: 98,
-            overallOwnership: 18.4,
+            totalPoints: 28,
+            overallOwnership: 11.3,
             isOwned: true,
             timestamp: Calendar.current.date(byAdding: .day, value: -1, to: Date()) ?? Date(),
-            homeTeam: "Liverpool",
+            homeTeam: "Arsenal",
             awayTeam: "Chelsea",
-            fixture: "LIV vs CHE",
+            fixture: "ARS vs CHE",
             impact: .medium
         ))
         
-        // Non-owned player - Red Card (Red)
+        // Non-owned player - Red Card (Red) - Real data: Trevoh Chalobah
         NotificationCardView(notification: FPLNotification(
             title: "🔴 Red Card",
-            body: "Player received a red card",
+            body: "Trevoh Chalobah received a red card",
             type: .redCards,
-            player: "João Cancelo",
-            team: "Barcelona",
-            teamAbbreviation: "BAR",
+            player: "Trevoh Chalobah",
+            team: "Chelsea",
+            teamAbbreviation: "CHE",
             points: -3,
             pointsChange: -3,
             pointsCategory: "Red Card",
-            totalPoints: 67,
-            overallOwnership: 5.7,
+            totalPoints: 27,
+            overallOwnership: 6.5,
             isOwned: false,
             timestamp: Calendar.current.date(byAdding: .day, value: -2, to: Date()) ?? Date(),
-            homeTeam: "Barcelona",
-            awayTeam: "Real Madrid",
-            fixture: "BAR vs RMA",
+            homeTeam: "Chelsea",
+            awayTeam: "Arsenal",
+            fixture: "CHE vs ARS",
             impact: .high
         ))
     }

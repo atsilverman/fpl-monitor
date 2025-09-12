@@ -41,17 +41,18 @@ from datetime import datetime, timezone
 from typing import Dict, List, Optional, Tuple
 from dotenv import load_dotenv
 
+# Import monitoring logger
+from simple_monitoring_logger import SimpleMonitoringLogger
+
 class FPLRefresh:
     def __init__(self):
         load_dotenv()  # Load environment variables
         self.db_conn = None
         self.fpl_base_url = "https://fantasy.premierleague.com/api"
-        # Discord configuration
-        self.webhook_url = "https://discord.com/api/webhooks/1412838792229814392/ApMUHzHi1sAKRs1UwXFFRo3xQpkj0DLd43uFt6qVbbjomoHR-j5-lT_uUCtAkqNCT6x5"
-        self.bot_username = "FPL Live Monitor"
+        # Notification configuration (iOS push notifications)
         self.min_points_change = 1
         
-        # Team emoji mapping for Discord notifications
+        # Team emoji mapping for notifications
         self.team_emojis = {
             'Arsenal': '🔴',
             'Aston Villa': '🟣',
@@ -133,6 +134,9 @@ class FPLRefresh:
         self.price_change_detected = False  # Track if price changes have been detected in current window
         self.notifications_sent_this_cycle = 0  # Track actual notifications sent
         self.price_window_notification_sent = False  # Track if we've notified about price window start
+        
+        # Monitoring logger
+        self.monitoring_logger = SimpleMonitoringLogger("main_monitor")
         
         # Logging setup - will be set dynamically per gameweek
         self.log_file = None
@@ -675,7 +679,7 @@ class FPLRefresh:
                 for i, (web_name, team_name, current, previous, change) in enumerate(increases[:10], 1):
                     message += f"{i}. {web_name} ({team_name}) +{change:.1f}%\n"
                 
-                self.send_discord_notification(message, "FPL")  # Use generic badge for summary
+                self.log_notification(message, "FPL")  # Use generic badge for summary
             
             # Send top 10 decreases
             if decreases:
@@ -683,7 +687,7 @@ class FPLRefresh:
                 for i, (web_name, team_name, current, previous, change) in enumerate(decreases[:10], 1):
                     message += f"{i}. {web_name} ({team_name}) {change:.1f}%\n"
                 
-                self.send_discord_notification(message, "FPL")  # Use generic badge for summary
+                self.log_notification(message, "FPL")  # Use generic badge for summary
                 
         except Exception as e:
             pass  # Silent error handling
@@ -781,7 +785,7 @@ class FPLRefresh:
                     # Send Discord notification when price window starts
                     if not self.price_window_notification_sent:
                         price_start_message = f"💰 **FPL PRICE UPDATE WINDOW STARTED**\n\n⏰ **Current Time**: {pacific_time.strftime('%I:%M %p')} Pacific Time\n🔄 **Switching to 5-minute refresh rate**\n\n📊 **Monitoring for price changes** - Will notify on any player price movements"
-                        self.send_discord_notification(price_start_message, "FPL")
+                        self.log_notification(price_start_message, "FPL")
                         self.price_window_notification_sent = True
                     
                     return 'price_update_windows'
@@ -793,7 +797,7 @@ class FPLRefresh:
                         utc_now = datetime.now(timezone.utc)
                         pacific_time = utc_now.astimezone(pytz.timezone('America/Los_Angeles'))
                         price_end_message = f"💰 **FPL PRICE UPDATE WINDOW ENDED**\n\n⏰ **Current Time**: {pacific_time.strftime('%I:%M %p')} Pacific Time\n🔄 **Switching back to normal refresh rate**\n\n📊 **Price monitoring deactivated**"
-                        self.send_discord_notification(price_end_message, "FPL")
+                        self.log_notification(price_end_message, "FPL")
                         self.price_window_notification_sent = False
                     
                     return 'no_live_matches'
@@ -858,7 +862,7 @@ class FPLRefresh:
                     message += f"🔵 **{away_team}**: {away_start_percent:.1f}%"
                     
                     # Send notification
-                    self.send_discord_notification(message, "FPL")
+                    self.log_notification(message, "FPL")
                     
                     # Record that we've notified about this fixture start
                     self.record_fixture_start_notification(fixture_id)
@@ -995,6 +999,12 @@ class FPLRefresh:
         for category_name in self.monitoring_config:
             self.last_refresh_times[category_name] = current_time
         
+        # Log monitoring start
+        self.monitoring_logger.log_heartbeat("monitoring_start", {
+            "game_state": self.current_game_state,
+            "categories": list(self.monitoring_config.keys())
+        })
+        
         try:
             while self.monitoring_active:
                 try:
@@ -1011,11 +1021,26 @@ class FPLRefresh:
                     
                     # Refresh active categories FIRST (including fixtures)
                     if categories_to_refresh:
-                        self.refresh_categories_persistent(categories_to_refresh)
+                        # Log the refresh run
+                        log_id = self.monitoring_logger.log_start("category_refresh", {
+                            "categories": categories_to_refresh,
+                            "game_state": self.current_game_state
+                        })
                         
-                        # Update refresh times
-                        for category_name in categories_to_refresh:
-                            self.last_refresh_times[category_name] = current_time
+                        try:
+                            self.refresh_categories_persistent(categories_to_refresh)
+                            
+                            # Update refresh times
+                            for category_name in categories_to_refresh:
+                                self.last_refresh_times[category_name] = current_time
+                            
+                            # Log successful completion
+                            self.monitoring_logger.log_complete(log_id, "success", 
+                                records_processed=len(categories_to_refresh))
+                        except Exception as e:
+                            # Log error
+                            self.monitoring_logger.log_error(log_id, str(e))
+                            raise
                     
                     # Passively refresh fixtures every 15 minutes to catch new kickoff times
                     # This ensures we don't miss early morning fixtures or timing changes
@@ -1046,19 +1071,19 @@ class FPLRefresh:
                         if self.current_game_state == 'upcoming_matches':
                             # Send Discord notification for upcoming matches
                             state_message = f"🔄 **FPL Monitor State Change**\n\n**{previous_game_state.upper()}** → **{self.current_game_state.upper()}**\n\n🎯 **Fixtures starting soon** - Switching to 2-minute refresh rate"
-                            self.send_discord_notification(state_message, "FPL")
+                            self.log_notification(state_message, "FPL")
                         elif self.current_game_state == 'live_matches':
                             # Send Discord notification for live matches
                             state_message = f"🔄 **FPL Monitor State Change**\n\n**{previous_game_state.upper()}** → **{self.current_game_state.upper()}**\n\n⚽ **Matches are now LIVE** - Switching to 1-minute refresh rate"
-                            self.send_discord_notification(state_message, "FPL")
+                            self.log_notification(state_message, "FPL")
                         elif self.current_game_state == 'price_update_windows':
                             # Send Discord notification for price update windows
                             state_message = f"🔄 **FPL Monitor State Change**\n\n**{previous_game_state.upper()}** → **{self.current_game_state.upper()}**\n\n💰 **Price update window active** - Switching to 5-minute refresh rate"
-                            self.send_discord_notification(state_message, "FPL")
+                            self.log_notification(state_message, "FPL")
                         else:
                             # Send Discord notification for other state changes (no_live_matches, etc.)
                             state_message = f"🔄 **FPL Monitor State Change**\n\n**{previous_game_state.upper()}** → **{self.current_game_state.upper()}**\n\n⏰ **Switching to 1-hour refresh rate**"
-                            self.send_discord_notification(state_message, "FPL")
+                            self.log_notification(state_message, "FPL")
                     
                     # Reset price change flag when exiting price window
                     if previous_game_state == 'price_update_windows' and self.current_game_state != 'price_update_windows':
@@ -1081,6 +1106,15 @@ class FPLRefresh:
                     notifications_count = self.notifications_sent_this_cycle
                     current_time = datetime.now().strftime('%H:%M:%S')
                     print(f"🎮 {current_time} | {self.current_game_state} | {refresh_rate} | {notifications_count} notifications | Sleep: {sleep_time}s")
+                    
+                    # Log periodic heartbeat every 10 minutes
+                    if not hasattr(self, 'last_heartbeat') or (int(time.time()) - getattr(self, 'last_heartbeat', 0)) >= 600:
+                        self.monitoring_logger.log_heartbeat("periodic_heartbeat", {
+                            "game_state": self.current_game_state,
+                            "notifications_sent": notifications_count,
+                            "refresh_rate": refresh_rate
+                        })
+                        self.last_heartbeat = int(time.time())
                     
                     # Reset notification counter for next cycle
                     self.notifications_sent_this_cycle = 0
@@ -2468,29 +2502,29 @@ class FPLRefresh:
 
     # BPS-related methods now actively monitor live bonus point changes
 
-    def send_discord_notification(self, message: str, team_name: str = None):
-        """Send notification to Discord webhook with team emoji"""
-        if not self.webhook_url or "YOUR_WEBHOOK_HERE" in self.webhook_url:
-            print(f"⚠️ No valid Discord webhook configured")
-            return
+    def log_notification(self, message: str, team_name: str = None):
+        """Log notification for iOS push notifications and track in Supabase"""
+        team_emoji = self.team_emojis.get(team_name, "⚽") if team_name else "⚽"
+        notification_message = f"{team_emoji} {message}"
         
-        # Create Discord embed with team emoji
-        embed = {
-            "description": message,
-            "color": 0x00ff00  # Green color for FPL
-        }
+        # Log to console
+        print(f"📱 iOS Notification: {notification_message}")
         
-        payload = {
-            "embeds": [embed],
-            "username": self.bot_username,
-            "avatar_url": "https://fantasy.premierleague.com/dist/img/favicon.ico"
-        }
-        
+        # Log to Supabase monitoring_log
         try:
-            response = requests.post(self.webhook_url, json=payload, timeout=10)
-            response.raise_for_status()
+            if hasattr(self, 'monitoring_logger'):
+                log_id = self.monitoring_logger.log_start("notification", {
+                    "message": notification_message,
+                    "team_name": team_name,
+                    "notification_type": "ios_push"
+                })
+                if log_id:
+                    self.monitoring_logger.log_complete(log_id, "success", 
+                        notifications_sent=1)
         except Exception as e:
-            print(f"❌ Discord notification failed: {e}")
+            print(f"⚠️ Failed to log notification to Supabase: {e}")
+        
+        # TODO: Integrate with iOS push notification service
 
     def format_notification_message(self, change: Dict) -> str:
         """Format change into clean, effective Discord notification message"""
@@ -2734,7 +2768,7 @@ class FPLRefresh:
         grouped_message = "\n\n".join(message_parts)
         
         # Send as single Discord notification
-        self.send_discord_notification(grouped_message, "FPL")
+        self.log_notification(grouped_message, "FPL")
 
     def send_grouped_bonus_notifications(self, changes: List[Dict]):
         """Send grouped bonus notifications sorted by start % descending"""
@@ -2762,7 +2796,7 @@ class FPLRefresh:
         grouped_message = "\n\n".join(message_parts)
         
         # Send as single Discord notification
-        self.send_discord_notification(grouped_message, "FPL")
+        self.log_notification(grouped_message, "FPL")
 
     def send_consolidated_price_notifications(self, changes: List[Dict]):
         """Send consolidated price change notifications - one for increases, one for decreases"""
@@ -2811,7 +2845,7 @@ class FPLRefresh:
         
         # Send notification
         grouped_message = "\n".join(message_parts)
-        self.send_discord_notification(grouped_message, "FPL")
+        self.log_notification(grouped_message, "FPL")
 
     def send_price_decrease_notification(self, changes: List[Dict]):
         """Send consolidated price decrease notification"""
@@ -2837,13 +2871,13 @@ class FPLRefresh:
         
         # Send notification
         grouped_message = "\n".join(message_parts)
-        self.send_discord_notification(grouped_message, "FPL")
+        self.log_notification(grouped_message, "FPL")
 
     def send_individual_notification(self, change: Dict):
         """Send individual notification for changes that don't meet grouping criteria"""
         message = self.format_notification_message(change)
         team_name = change.get('team_name')
-        self.send_discord_notification(message, team_name)
+        self.log_notification(message, team_name)
 
     def get_fixture_header(self, change: Dict) -> str:
         """Get fixture header (home team vs away team) for a change"""

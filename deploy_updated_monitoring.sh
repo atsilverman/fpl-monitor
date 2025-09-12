@@ -1,25 +1,28 @@
-#!/usr/bin/env python3
-"""
-Production FPL Price Monitor
-Runs 24/7 on DigitalOcean to detect and update FPL price changes
-"""
+#!/bin/bash
+set -e
 
+echo "🚀 Updating FPL Monitoring Service with History Table Support..."
+
+# Stop the current service
+systemctl stop fpl-monitor
+
+# Update the monitoring script
+cat > /opt/fpl-monitor/production_monitor.py << 'EOF'
+#!/usr/bin/env python3
 import os
 import requests
 import time
 import logging
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from dotenv import load_dotenv
 
-# Load environment variables
 load_dotenv()
 
-# Configure logging
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     handlers=[
-        logging.FileHandler('monitor.log'),
+        logging.FileHandler('/opt/fpl-monitor/monitor.log'),
         logging.StreamHandler()
     ]
 )
@@ -34,11 +37,9 @@ class ProductionFPLMonitor:
             'Authorization': f'Bearer {self.service_key}',
             'Content-Type': 'application/json'
         }
-        self.previous_prices = {}
         self.monitoring = True
         
     def get_fpl_data(self):
-        """Get current FPL data from the API"""
         try:
             response = requests.get('https://fantasy.premierleague.com/api/bootstrap-static/', timeout=10)
             if response.status_code == 200:
@@ -54,7 +55,6 @@ class ProductionFPLMonitor:
             return None
     
     def get_supabase_players(self):
-        """Get current player data from Supabase"""
         try:
             response = requests.get(f'{self.supabase_url}/rest/v1/players?select=fpl_id,web_name,now_cost&limit=1000', 
                                    headers=self.headers, timeout=10)
@@ -70,7 +70,6 @@ class ProductionFPLMonitor:
             return None
     
     def detect_price_changes(self, fpl_data, supabase_data):
-        """Detect price changes between FPL API and Supabase"""
         if not fpl_data or not supabase_data:
             return []
         
@@ -103,7 +102,6 @@ class ProductionFPLMonitor:
         return changes
     
     def update_supabase_prices(self, changes):
-        """Update Supabase with new prices and populate history tables"""
         if not changes:
             return True
         
@@ -137,7 +135,6 @@ class ProductionFPLMonitor:
         return success_count == len(changes)
     
     def store_price_change_in_history(self, change):
-        """Store price change in live_monitor_history table"""
         try:
             # Get current gameweek
             gameweek = self.get_current_gameweek()
@@ -149,7 +146,7 @@ class ProductionFPLMonitor:
                 'event_type': 'price_change',
                 'old_value': change['old_price'],
                 'new_value': change['new_price'],
-                'points_change': 0  # Price changes don't affect FPL points directly
+                'points_change': 0
             }
             
             response = requests.post(
@@ -168,7 +165,6 @@ class ProductionFPLMonitor:
             logger.warning(f"  ⚠️ Error storing price change history: {e}")
     
     def get_current_gameweek(self):
-        """Get current gameweek from Supabase"""
         try:
             response = requests.get(
                 f'{self.supabase_url}/rest/v1/gameweeks?is_current=eq.true&select=id&limit=1',
@@ -181,10 +177,9 @@ class ProductionFPLMonitor:
                 if data:
                     return data[0]['id']
             
-            # Fallback to current week calculation
+            # Fallback
             from datetime import datetime
             now = datetime.now()
-            # Rough calculation - FPL season typically starts in August
             return max(1, (now.month - 8) + 1) if now.month >= 8 else 1
             
         except Exception as e:
@@ -192,22 +187,18 @@ class ProductionFPLMonitor:
             return 1
     
     def is_price_update_window(self):
-        """Check if we're in the FPL price update window (6:30-6:40 PM Pacific)"""
         now = datetime.now(timezone.utc)
-        pacific_time = now.astimezone(timezone(timedelta(hours=-8)))  # Pacific Time
+        pacific_time = now.astimezone(timezone(timedelta(hours=-8)))
         
         hour = pacific_time.hour
         minute = pacific_time.minute
         
-        # FPL price updates typically happen between 6:30-6:40 PM Pacific
         return (hour == 18 and minute >= 30) and (hour == 18 and minute < 40)
     
     def run_monitoring_cycle(self):
-        """Run a single monitoring cycle"""
         try:
             logger.info("Starting monitoring cycle...")
             
-            # Get current data
             fpl_data = self.get_fpl_data()
             if not fpl_data:
                 logger.warning("No FPL data available")
@@ -218,10 +209,8 @@ class ProductionFPLMonitor:
                 logger.warning("No Supabase data available")
                 return
             
-            # Detect changes
             changes = self.detect_price_changes(fpl_data, supabase_data)
             
-            # Update Supabase if there are changes
             if changes:
                 update_success = self.update_supabase_prices(changes)
                 if update_success:
@@ -238,7 +227,6 @@ class ProductionFPLMonitor:
             logger.error(f"Error in monitoring cycle: {e}")
     
     def check_and_capture_daily_snapshot(self, fpl_data):
-        """Check if we should capture a daily snapshot and do it if needed"""
         try:
             from datetime import datetime, timezone
             import pytz
@@ -261,7 +249,6 @@ class ProductionFPLMonitor:
             logger.warning(f"Error checking daily snapshot: {e}")
     
     def has_daily_snapshot_today(self, today):
-        """Check if we already have a daily snapshot for today"""
         try:
             response = requests.get(
                 f'{self.supabase_url}/rest/v1/player_history?snapshot_date=eq.{today}&snapshot_window=eq.daily_9pm_pdt&limit=1',
@@ -280,7 +267,6 @@ class ProductionFPLMonitor:
             return False
     
     def capture_daily_snapshot(self, fpl_data, today, pacific_time):
-        """Capture daily snapshot of player data"""
         try:
             snapshot_data = []
             
@@ -290,7 +276,7 @@ class ProductionFPLMonitor:
                     'snapshot_date': str(today),
                     'snapshot_window': 'daily_9pm_pdt',
                     'snapshot_timestamp': pacific_time.isoformat(),
-                    'now_cost': player['now_cost'] / 10,  # Convert to decimal (55 -> 5.5)
+                    'now_cost': player['now_cost'] / 10,  # Convert to decimal
                     'selected_by_percent': player.get('selected_by_percent', 0),
                     'status': player.get('status', 'a'),
                     'news': player.get('news', '')
@@ -313,7 +299,6 @@ class ProductionFPLMonitor:
             logger.error(f"❌ Error capturing daily snapshot: {e}")
     
     def start_monitoring(self):
-        """Start the monitoring service"""
         logger.info("🚀 Starting FPL Price Monitoring Service")
         logger.info("Monitoring will run every 2 minutes")
         logger.info("Price updates typically occur between 6:30-6:40 PM Pacific")
@@ -342,3 +327,14 @@ def main():
 
 if __name__ == "__main__":
     main()
+EOF
+EOF
+
+# Make it executable
+chmod +x /opt/fpl-monitor/production_monitor.py
+
+# Restart the service
+systemctl start fpl-monitor
+
+echo "✅ Updated monitoring service deployed successfully!"
+echo "📝 Service now includes history table population"

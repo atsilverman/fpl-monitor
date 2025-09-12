@@ -1,25 +1,58 @@
 #!/usr/bin/env python3
 """
-Production FPL Price Monitor
-Runs 24/7 on DigitalOcean to detect and update FPL price changes
+Deploy Updated FPL Monitoring Service
+Updates the server with the version that populates history tables
 """
 
+import os
+import subprocess
+import sys
+
+def run_command(cmd, description):
+    """Run a command and return success status"""
+    print(f"🔄 {description}...")
+    try:
+        result = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=60)
+        if result.returncode == 0:
+            print(f"✅ {description} - Success")
+            return True
+        else:
+            print(f"❌ {description} - Failed")
+            print(f"   Error: {result.stderr}")
+            return False
+    except subprocess.TimeoutExpired:
+        print(f"❌ {description} - Timeout")
+        return False
+    except Exception as e:
+        print(f"❌ {description} - Error: {e}")
+        return False
+
+def main():
+    print("🚀 Deploying Updated FPL Monitoring Service")
+    print("=" * 60)
+    
+    # Server details
+    DROPLET_IP = "138.68.28.59"
+    DROPLET_USER = "root"
+    
+    print(f"📍 Target: {DROPLET_USER}@{DROPLET_IP}")
+    
+    # Create updated monitoring service
+    updated_script = f"""#!/usr/bin/env python3
 import os
 import requests
 import time
 import logging
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from dotenv import load_dotenv
 
-# Load environment variables
 load_dotenv()
 
-# Configure logging
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     handlers=[
-        logging.FileHandler('monitor.log'),
+        logging.FileHandler('/opt/fpl-monitor/monitor.log'),
         logging.StreamHandler()
     ]
 )
@@ -29,54 +62,50 @@ class ProductionFPLMonitor:
     def __init__(self):
         self.supabase_url = os.getenv('SUPABASE_URL')
         self.service_key = os.getenv('SUPABASE_SERVICE_ROLE_KEY')
-        self.headers = {
+        self.headers = {{
             'apikey': self.service_key,
-            'Authorization': f'Bearer {self.service_key}',
+            'Authorization': f'Bearer {{self.service_key}}',
             'Content-Type': 'application/json'
-        }
-        self.previous_prices = {}
+        }}
         self.monitoring = True
         
     def get_fpl_data(self):
-        """Get current FPL data from the API"""
         try:
             response = requests.get('https://fantasy.premierleague.com/api/bootstrap-static/', timeout=10)
             if response.status_code == 200:
                 data = response.json()
                 players = data['elements']
-                logger.info(f"Fetched {len(players)} players from FPL API")
+                logger.info(f"Fetched {{len(players)}} players from FPL API")
                 return players
             else:
-                logger.error(f"FPL API error: {response.status_code}")
+                logger.error(f"FPL API error: {{response.status_code}}")
                 return None
         except Exception as e:
-            logger.error(f"Error fetching FPL data: {e}")
+            logger.error(f"Error fetching FPL data: {{e}}")
             return None
     
     def get_supabase_players(self):
-        """Get current player data from Supabase"""
         try:
-            response = requests.get(f'{self.supabase_url}/rest/v1/players?select=fpl_id,web_name,now_cost&limit=1000', 
+            response = requests.get(f'{{self.supabase_url}}/rest/v1/players?select=fpl_id,web_name,now_cost&limit=1000', 
                                    headers=self.headers, timeout=10)
             if response.status_code == 200:
                 data = response.json()
-                logger.info(f"Fetched {len(data)} players from Supabase")
+                logger.info(f"Fetched {{len(data)}} players from Supabase")
                 return data
             else:
-                logger.error(f"Supabase error: {response.status_code}")
+                logger.error(f"Supabase error: {{response.status_code}}")
                 return None
         except Exception as e:
-            logger.error(f"Error fetching Supabase data: {e}")
+            logger.error(f"Error fetching Supabase data: {{e}}")
             return None
     
     def detect_price_changes(self, fpl_data, supabase_data):
-        """Detect price changes between FPL API and Supabase"""
         if not fpl_data or not supabase_data:
             return []
         
         # Create lookup dictionaries
-        fpl_prices = {player['id']: player['now_cost'] for player in fpl_data}
-        supabase_prices = {player['fpl_id']: player['now_cost'] for player in supabase_data}
+        fpl_prices = {{player['id']: player['now_cost'] for player in fpl_data}}
+        supabase_prices = {{player['fpl_id']: player['now_cost'] for player in supabase_data}}
         
         changes = []
         for fpl_id, fpl_price in fpl_prices.items():
@@ -85,93 +114,90 @@ class ProductionFPLMonitor:
                 if fpl_price != supabase_price:
                     # Find player name
                     player_name = next((p['web_name'] for p in fpl_data if p['id'] == fpl_id), 'Unknown')
-                    changes.append({
+                    changes.append({{
                         'fpl_id': fpl_id,
                         'name': player_name,
                         'old_price': supabase_price,
                         'new_price': fpl_price,
                         'change': fpl_price - supabase_price
-                    })
+                    }})
         
         if changes:
-            logger.info(f"Detected {len(changes)} price changes")
+            logger.info(f"Detected {{len(changes)}} price changes")
             for change in changes[:5]:  # Log first 5 changes
-                logger.info(f"  {change['name']} (ID {change['fpl_id']}): {change['old_price']} → {change['new_price']} ({change['change']:+d})")
+                logger.info(f"  {{change['name']}} (ID {{change['fpl_id']}}): {{change['old_price']}} → {{change['new_price']}} ({{change['change']:+d}})")
             if len(changes) > 5:
-                logger.info(f"  ... and {len(changes) - 5} more")
+                logger.info(f"  ... and {{len(changes) - 5}} more")
         
         return changes
     
     def update_supabase_prices(self, changes):
-        """Update Supabase with new prices and populate history tables"""
         if not changes:
             return True
         
-        logger.info(f"Updating {len(changes)} players in Supabase...")
+        logger.info(f"Updating {{len(changes)}} players in Supabase...")
         
         success_count = 0
         for change in changes:
             try:
                 # Update the players table
                 response = requests.patch(
-                    f'{self.supabase_url}/rest/v1/players?fpl_id=eq.{change["fpl_id"]}',
+                    f'{{self.supabase_url}}/rest/v1/players?fpl_id=eq.{{change["fpl_id"]}}',
                     headers=self.headers,
-                    json={'now_cost': change['new_price'], 'updated_at': 'now()'},
+                    json={{'now_cost': change['new_price'], 'updated_at': 'now()'}},
                     timeout=5
                 )
                 
                 if response.status_code in [200, 204]:
                     success_count += 1
-                    logger.info(f"  ✅ {change['name']}: {change['old_price']} → {change['new_price']}")
+                    logger.info(f"  ✅ {{change['name']}}: {{change['old_price']}} → {{change['new_price']}}")
                     
                     # Store price change in live_monitor_history
                     self.store_price_change_in_history(change)
                     
                 else:
-                    logger.error(f"  ❌ {change['name']}: Failed ({response.status_code})")
+                    logger.error(f"  ❌ {{change['name']}}: Failed ({{response.status_code}})")
                     
             except Exception as e:
-                logger.error(f"  ❌ {change['name']}: Error - {e}")
+                logger.error(f"  ❌ {{change['name']}}: Error - {{e}}")
         
-        logger.info(f"Updated {success_count}/{len(changes)} players successfully")
+        logger.info(f"Updated {{success_count}}/{{len(changes)}} players successfully")
         return success_count == len(changes)
     
     def store_price_change_in_history(self, change):
-        """Store price change in live_monitor_history table"""
         try:
             # Get current gameweek
             gameweek = self.get_current_gameweek()
             
             # Store in live_monitor_history
-            history_data = {
+            history_data = {{
                 'player_name': change['name'],
                 'gameweek': gameweek,
                 'event_type': 'price_change',
                 'old_value': change['old_price'],
                 'new_value': change['new_price'],
-                'points_change': 0  # Price changes don't affect FPL points directly
-            }
+                'points_change': 0
+            }}
             
             response = requests.post(
-                f'{self.supabase_url}/rest/v1/live_monitor_history',
+                f'{{self.supabase_url}}/rest/v1/live_monitor_history',
                 headers=self.headers,
                 json=history_data,
                 timeout=5
             )
             
             if response.status_code in [200, 201]:
-                logger.debug(f"  📝 Stored price change history for {change['name']}")
+                logger.debug(f"  📝 Stored price change history for {{change['name']}}")
             else:
-                logger.warning(f"  ⚠️ Failed to store history for {change['name']}: {response.status_code}")
+                logger.warning(f"  ⚠️ Failed to store history for {{change['name']}}: {{response.status_code}}")
                 
         except Exception as e:
-            logger.warning(f"  ⚠️ Error storing price change history: {e}")
+            logger.warning(f"  ⚠️ Error storing price change history: {{e}}")
     
     def get_current_gameweek(self):
-        """Get current gameweek from Supabase"""
         try:
             response = requests.get(
-                f'{self.supabase_url}/rest/v1/gameweeks?is_current=eq.true&select=id&limit=1',
+                f'{{self.supabase_url}}/rest/v1/gameweeks?is_current=eq.true&select=id&limit=1',
                 headers=self.headers,
                 timeout=5
             )
@@ -181,33 +207,28 @@ class ProductionFPLMonitor:
                 if data:
                     return data[0]['id']
             
-            # Fallback to current week calculation
+            # Fallback
             from datetime import datetime
             now = datetime.now()
-            # Rough calculation - FPL season typically starts in August
             return max(1, (now.month - 8) + 1) if now.month >= 8 else 1
             
         except Exception as e:
-            logger.warning(f"Error getting current gameweek: {e}")
+            logger.warning(f"Error getting current gameweek: {{e}}")
             return 1
     
     def is_price_update_window(self):
-        """Check if we're in the FPL price update window (6:30-6:40 PM Pacific)"""
         now = datetime.now(timezone.utc)
-        pacific_time = now.astimezone(timezone(timedelta(hours=-8)))  # Pacific Time
+        pacific_time = now.astimezone(timezone(timedelta(hours=-8)))
         
         hour = pacific_time.hour
         minute = pacific_time.minute
         
-        # FPL price updates typically happen between 6:30-6:40 PM Pacific
         return (hour == 18 and minute >= 30) and (hour == 18 and minute < 40)
     
     def run_monitoring_cycle(self):
-        """Run a single monitoring cycle"""
         try:
             logger.info("Starting monitoring cycle...")
             
-            # Get current data
             fpl_data = self.get_fpl_data()
             if not fpl_data:
                 logger.warning("No FPL data available")
@@ -218,10 +239,8 @@ class ProductionFPLMonitor:
                 logger.warning("No Supabase data available")
                 return
             
-            # Detect changes
             changes = self.detect_price_changes(fpl_data, supabase_data)
             
-            # Update Supabase if there are changes
             if changes:
                 update_success = self.update_supabase_prices(changes)
                 if update_success:
@@ -235,10 +254,9 @@ class ProductionFPLMonitor:
             self.check_and_capture_daily_snapshot(fpl_data)
                 
         except Exception as e:
-            logger.error(f"Error in monitoring cycle: {e}")
+            logger.error(f"Error in monitoring cycle: {{e}}")
     
     def check_and_capture_daily_snapshot(self, fpl_data):
-        """Check if we should capture a daily snapshot and do it if needed"""
         try:
             from datetime import datetime, timezone
             import pytz
@@ -258,13 +276,12 @@ class ProductionFPLMonitor:
                     logger.debug("Daily snapshot already captured today")
                     
         except Exception as e:
-            logger.warning(f"Error checking daily snapshot: {e}")
+            logger.warning(f"Error checking daily snapshot: {{e}}")
     
     def has_daily_snapshot_today(self, today):
-        """Check if we already have a daily snapshot for today"""
         try:
             response = requests.get(
-                f'{self.supabase_url}/rest/v1/player_history?snapshot_date=eq.{today}&snapshot_window=eq.daily_9pm_pdt&limit=1',
+                f'{{self.supabase_url}}/rest/v1/player_history?snapshot_date=eq.{{today}}&snapshot_window=eq.daily_9pm_pdt&limit=1',
                 headers=self.headers,
                 timeout=5
             )
@@ -276,44 +293,42 @@ class ProductionFPLMonitor:
             return False
             
         except Exception as e:
-            logger.warning(f"Error checking daily snapshot: {e}")
+            logger.warning(f"Error checking daily snapshot: {{e}}")
             return False
     
     def capture_daily_snapshot(self, fpl_data, today, pacific_time):
-        """Capture daily snapshot of player data"""
         try:
             snapshot_data = []
             
             for player in fpl_data:
-                snapshot_data.append({
+                snapshot_data.append({{
                     'fpl_id': player['id'],
                     'snapshot_date': str(today),
                     'snapshot_window': 'daily_9pm_pdt',
                     'snapshot_timestamp': pacific_time.isoformat(),
-                    'now_cost': player['now_cost'] / 10,  # Convert to decimal (55 -> 5.5)
+                    'now_cost': player['now_cost'] / 10,  # Convert to decimal
                     'selected_by_percent': player.get('selected_by_percent', 0),
                     'status': player.get('status', 'a'),
                     'news': player.get('news', '')
-                })
+                }})
             
             # Insert snapshot data
             response = requests.post(
-                f'{self.supabase_url}/rest/v1/player_history',
+                f'{{self.supabase_url}}/rest/v1/player_history',
                 headers=self.headers,
                 json=snapshot_data,
                 timeout=10
             )
             
             if response.status_code in [200, 201]:
-                logger.info(f"📸 Captured daily snapshot for {len(snapshot_data)} players")
+                logger.info(f"📸 Captured daily snapshot for {{len(snapshot_data)}} players")
             else:
-                logger.error(f"❌ Failed to capture daily snapshot: {response.status_code}")
+                logger.error(f"❌ Failed to capture daily snapshot: {{response.status_code}}")
                 
         except Exception as e:
-            logger.error(f"❌ Error capturing daily snapshot: {e}")
+            logger.error(f"❌ Error capturing daily snapshot: {{e}}")
     
     def start_monitoring(self):
-        """Start the monitoring service"""
         logger.info("🚀 Starting FPL Price Monitoring Service")
         logger.info("Monitoring will run every 2 minutes")
         logger.info("Price updates typically occur between 6:30-6:40 PM Pacific")
@@ -330,7 +345,7 @@ class ProductionFPLMonitor:
                 logger.info("Monitoring stopped by user")
                 break
             except Exception as e:
-                logger.error(f"Unexpected error: {e}")
+                logger.error(f"Unexpected error: {{e}}")
                 logger.info("Waiting 5 minutes before retry...")
                 time.sleep(300)  # Wait 5 minutes on error
         
@@ -342,3 +357,58 @@ def main():
 
 if __name__ == "__main__":
     main()
+EOF"""
+
+    # Write updated script to file
+    with open("deploy_updated_monitoring.sh", "w") as f:
+        f.write(f"""#!/bin/bash
+set -e
+
+echo "🚀 Updating FPL Monitoring Service with History Table Support..."
+
+# Stop the current service
+systemctl stop fpl-monitor
+
+# Update the monitoring script
+cat > /opt/fpl-monitor/production_monitor.py << 'EOF'
+{updated_script}
+EOF
+
+# Make it executable
+chmod +x /opt/fpl-monitor/production_monitor.py
+
+# Restart the service
+systemctl start fpl-monitor
+
+echo "✅ Updated monitoring service deployed successfully!"
+echo "📝 Service now includes history table population"
+""")
+
+    # Make it executable
+    os.chmod("deploy_updated_monitoring.sh", 0o755)
+    
+    # Copy and run the update script
+    if not run_command(f"scp deploy_updated_monitoring.sh {DROPLET_USER}@{DROPLET_IP}:/tmp/", "Copying updated monitoring script"):
+        return False
+    
+    if not run_command(f"ssh {DROPLET_USER}@{DROPLET_IP} 'bash /tmp/deploy_updated_monitoring.sh'", "Updating monitoring service"):
+        return False
+    
+    # Check service status
+    if not run_command(f"ssh {DROPLET_USER}@{DROPLET_IP} 'systemctl status fpl-monitor --no-pager'", "Checking service status"):
+        return False
+    
+    # Clean up
+    os.remove("deploy_updated_monitoring.sh")
+    
+    print("\n🎉 Updated FPL Monitoring Service deployed successfully!")
+    print("📊 New Features:")
+    print("  ✅ Price changes stored in live_monitor_history")
+    print("  ✅ Daily snapshots stored in player_history")
+    print("  ✅ Automatic history table population")
+    
+    return True
+
+if __name__ == "__main__":
+    success = main()
+    sys.exit(0 if success else 1)

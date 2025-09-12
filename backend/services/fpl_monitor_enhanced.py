@@ -125,12 +125,19 @@ class NotificationData(BaseModel):
     player_id: int
     player_name: str
     team_name: str
+    team_abbreviation: str
     fixture_id: Optional[int] = None
+    home_team: Optional[str] = None
+    away_team: Optional[str] = None
+    fixture: Optional[str] = None
     gameweek: int
     event_type: str
     old_value: int
     new_value: int
     points_change: int
+    total_points: int
+    overall_ownership: float
+    is_owned: bool
     message: str
     timestamp: datetime
 
@@ -451,11 +458,17 @@ class DatabaseManager:
             }
     
     def _create_notification(self, change: Dict, player_id: int, gameweek: int) -> Optional[NotificationData]:
-        """Create notification from stat change"""
+        """Create notification from stat change with comprehensive data"""
         # Get player info
         player_info = self._get_player_info(player_id)
         if not player_info:
             return None
+        
+        # Get fixture info
+        fixture_info = self._get_fixture_info(player_id, gameweek)
+        
+        # Check if player is owned (for future user-specific features)
+        is_owned = self._check_if_player_owned(player_id)
         
         # Create notification message
         message = self._format_notification_message(change, player_info)
@@ -464,24 +477,40 @@ class DatabaseManager:
             player_id=player_id,
             player_name=player_info["web_name"],
             team_name=player_info["team_name"],
+            team_abbreviation=player_info["team_abbreviation"],
+            fixture_id=fixture_info["fixture_id"] if fixture_info else None,
+            home_team=fixture_info["home_team"] if fixture_info else None,
+            away_team=fixture_info["away_team"] if fixture_info else None,
+            fixture=fixture_info["fixture"] if fixture_info else None,
             gameweek=gameweek,
             event_type=change["stat"],
             old_value=change["old_value"],
             new_value=change["new_value"],
             points_change=change["points_change"],
+            total_points=player_info["total_points"],
+            overall_ownership=player_info["overall_ownership"],
+            is_owned=is_owned,
             message=message,
             timestamp=datetime.now(timezone.utc)
         )
     
     def _get_player_info(self, player_id: int) -> Optional[Dict]:
-        """Get player info from database"""
+        """Get comprehensive player info from database including fixture data"""
         if not self.pg_conn:
             return None
         
         try:
             cursor = self.pg_conn.cursor()
             cursor.execute("""
-                SELECT p.web_name, t.name as team_name
+                SELECT 
+                    p.web_name, 
+                    p.first_name,
+                    p.second_name,
+                    t.name as team_name,
+                    t.short_name as team_abbreviation,
+                    p.total_points,
+                    p.selected_by_percent,
+                    p.fpl_id
                 FROM players p
                 JOIN teams t ON p.team_id = t.id
                 WHERE p.fpl_id = %s
@@ -491,14 +520,70 @@ class DatabaseManager:
             if result:
                 return {
                     "web_name": result[0],
-                    "team_name": result[1]
+                    "first_name": result[1],
+                    "second_name": result[2],
+                    "team_name": result[3],
+                    "team_abbreviation": result[4],
+                    "total_points": result[5] or 0,
+                    "overall_ownership": float(result[6] or 0),
+                    "fpl_id": result[7]
                 }
             return None
-        except:
+        except Exception as e:
+            print(f"Error getting player info for {player_id}: {e}")
             return None
         finally:
             if 'cursor' in locals():
                 cursor.close()
+    
+    def _get_fixture_info(self, player_id: int, gameweek: int) -> Optional[Dict]:
+        """Get fixture information for a player in a specific gameweek"""
+        if not self.pg_conn:
+            return None
+        
+        try:
+            cursor = self.pg_conn.cursor()
+            cursor.execute("""
+                SELECT 
+                    f.id as fixture_id,
+                    th.short_name as home_team,
+                    ta.short_name as away_team,
+                    th.name as home_team_full,
+                    ta.name as away_team_full
+                FROM gameweek_stats gs
+                JOIN fixtures f ON gs.fixture_id = f.id
+                JOIN teams th ON f.team_h = th.id
+                JOIN teams ta ON f.team_a = ta.id
+                JOIN players p ON gs.player_id = p.id
+                WHERE p.fpl_id = %s 
+                AND gs.gameweek = %s
+                LIMIT 1
+            """, (player_id, gameweek))
+            result = cursor.fetchone()
+            
+            if result:
+                fixture_id, home_team, away_team, home_team_full, away_team_full = result
+                return {
+                    "fixture_id": fixture_id,
+                    "home_team": home_team,
+                    "away_team": away_team,
+                    "home_team_full": home_team_full,
+                    "away_team_full": away_team_full,
+                    "fixture": f"{home_team} vs {away_team}"
+                }
+            return None
+        except Exception as e:
+            print(f"Error getting fixture info for player {player_id}, gameweek {gameweek}: {e}")
+            return None
+        finally:
+            if 'cursor' in locals():
+                cursor.close()
+    
+    def _check_if_player_owned(self, player_id: int, user_id: Optional[str] = None) -> bool:
+        """Check if a player is owned by the user (for future user-specific notifications)"""
+        # For now, return False as we don't have user context in this service
+        # This would be enhanced when we add user-specific notifications
+        return False
     
     def _format_notification_message(self, change: Dict, player_info: Dict) -> str:
         """Format notification message with emojis"""
