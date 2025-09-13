@@ -193,6 +193,17 @@ private struct MorphingHeaderView: View {
                     
                     Spacer()
                     
+                    // Filter button
+                    Button(action: {
+                        // Add filter action here
+                    }) {
+                        Image(systemName: "line.3.horizontal.decrease.circle")
+                            .font(accountButtonFont)
+                            .foregroundColor(.fplText)
+                    }
+                    .scaleEffect(accountButtonScale)
+                    .animation(.spring(response: 0.3, dampingFraction: 0.8), value: isScrolled)
+                    
                     // Account button
                     Button(action: {
                         showingSettings = true

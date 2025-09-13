@@ -110,10 +110,10 @@ struct FloatingDock: View {
     var body: some View {
         ZStack {
             // Background
-            RoundedRectangle(cornerRadius: 25)
+            RoundedRectangle(cornerRadius: 19)
                 .fill(.ultraThinMaterial)
                 .overlay(
-                    RoundedRectangle(cornerRadius: 25)
+                    RoundedRectangle(cornerRadius: 19)
                         .stroke(Color.white, lineWidth: 1)
                 )
                 .shadow(color: .black.opacity(0.15), radius: 10, x: 0, y: 5)
@@ -121,10 +121,10 @@ struct FloatingDock: View {
             
             // Sliding indicator - positioned behind the tabs
             HStack(spacing: 0) {
-                RoundedRectangle(cornerRadius: 24)
+                RoundedRectangle(cornerRadius: 16.5)
                     .fill(Color.fplText)
-                    .frame(width: 60, height: 44)
-                    .offset(x: CGFloat(selectedTab) * 66.67 + 3.33)
+                    .frame(width: 54, height: 39.6)
+                    .offset(x: CGFloat(selectedTab) * 66.67 + 6.33)
                     .animation(.spring(response: 0.3, dampingFraction: 0.7), value: selectedTab)
                 Spacer()
             }

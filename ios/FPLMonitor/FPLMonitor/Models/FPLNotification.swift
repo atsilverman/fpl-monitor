@@ -32,8 +32,12 @@ struct FPLNotification: Identifiable, Codable {
     let impact: NotificationImpact
     let playerPrice: Double?
     let priceChange: Double?
+    let playerStatus: String?
+    let oldStatus: String?
+    let newsText: String?
+    let oldNews: String?
     
-    init(id: String = UUID().uuidString, title: String, body: String, type: NotificationType, player: String, team: String, teamAbbreviation: String, points: Int, pointsChange: Int, pointsCategory: String, totalPoints: Int, gameweekPoints: Int, gameweek: Int, overallOwnership: Double = 0.0, isOwned: Bool = false, timestamp: Date = Date(), isRead: Bool = false, homeTeam: String, awayTeam: String, fixture: String, impact: NotificationImpact = .medium, playerPrice: Double? = nil, priceChange: Double? = nil) {
+    init(id: String = UUID().uuidString, title: String, body: String, type: NotificationType, player: String, team: String, teamAbbreviation: String, points: Int, pointsChange: Int, pointsCategory: String, totalPoints: Int, gameweekPoints: Int, gameweek: Int, overallOwnership: Double = 0.0, isOwned: Bool = false, timestamp: Date = Date(), isRead: Bool = false, homeTeam: String, awayTeam: String, fixture: String, impact: NotificationImpact = .medium, playerPrice: Double? = nil, priceChange: Double? = nil, playerStatus: String? = nil, oldStatus: String? = nil, newsText: String? = nil, oldNews: String? = nil) {
         self.id = id
         self.title = title
         self.body = body
@@ -57,6 +61,10 @@ struct FPLNotification: Identifiable, Codable {
         self.impact = impact
         self.playerPrice = playerPrice
         self.priceChange = priceChange
+        self.playerStatus = playerStatus
+        self.oldStatus = oldStatus
+        self.newsText = newsText
+        self.oldNews = oldNews
     }
 }
 
@@ -155,6 +163,55 @@ enum NotificationImpact: String, CaseIterable, Codable {
         case .medium: return "Medium Impact"
         case .high: return "High Impact"
         case .critical: return "Critical Impact"
+        }
+    }
+}
+
+// MARK: - Status Helper Functions
+
+extension FPLNotification {
+    /// Convert FPL status code to display text
+    static func statusDisplayText(for status: String?) -> String {
+        guard let status = status else { return "Unknown" }
+        
+        switch status.lowercased() {
+        case "a": return "Available"
+        case "d": return "Doubtful"
+        case "i": return "Injured"
+        case "s": return "Suspended"
+        case "u": return "Unavailable"
+        case "n": return "Not Eligible"
+        default: return "Unknown"
+        }
+    }
+    
+    /// Get status color for display
+    static func statusColor(for status: String?) -> Color {
+        guard let status = status else { return .gray }
+        
+        switch status.lowercased() {
+        case "a": return .green // Match price rise green
+        case "d": return Color(red: 0.831, green: 0.506, blue: 0.008) // #D4C302
+        case "i": return .red // Match price fall red
+        case "s": return .red // Match price fall red
+        case "u": return .red // Match price fall red
+        case "n": return .gray
+        default: return .gray
+        }
+    }
+    
+    /// Get status SF Symbol for display
+    static func statusIcon(for status: String?) -> String {
+        guard let status = status else { return "questionmark.circle.fill" }
+        
+        switch status.lowercased() {
+        case "a": return "exclamationmark.triangle.fill"
+        case "d": return "exclamationmark.triangle.fill"
+        case "i": return "exclamationmark.triangle.fill"
+        case "s": return "exclamationmark.triangle.fill"
+        case "u": return "x.circle.fill"
+        case "n": return "x.circle.fill"
+        default: return "questionmark.circle.fill"
         }
     }
 }

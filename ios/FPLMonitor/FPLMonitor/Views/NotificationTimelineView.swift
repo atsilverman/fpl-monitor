@@ -10,8 +10,6 @@ import SwiftUI
 struct NotificationTimelineView: View {
     @EnvironmentObject private var notificationManager: NotificationManager
     @EnvironmentObject private var analyticsManager: AnalyticsManager
-    @State private var isShowingTimestamps = false
-    @State private var dragOffset: CGFloat = 0
     @State private var showingSettings = false
     @State private var scrollOffset: CGFloat = 0
     
@@ -25,16 +23,15 @@ struct NotificationTimelineView: View {
                     ScrollViewReader { proxy in
                         ScrollView {
                             LazyVStack(spacing: 0) {
-                                // Invisible spacer to create scroll offset
+                                // Top padding to account for header height
                                 Color.clear
-                                    .frame(height: 1)
+                                    .frame(height: 100)
                                     .id("top")
                                 
                                 ForEach(notificationManager.notifications) { notification in
                                     NotificationCardView(
                                         notification: notification,
-                                        isShowingTimestamps: $isShowingTimestamps,
-                                        dragOffset: $dragOffset
+                                        isShowingTimestamps: .constant(false)
                                     )
                                     .padding(.horizontal, 16)
                                     .padding(.vertical, 4.6)
@@ -60,25 +57,6 @@ struct NotificationTimelineView: View {
                         .refreshable {
                             notificationManager.refreshNotifications()
                         }
-                        .gesture(
-                            DragGesture()
-                                .onChanged { value in
-                                    if value.translation.width < 0 {
-                                        dragOffset = max(value.translation.width, -100)
-                                    }
-                                }
-                                .onEnded { value in
-                                    withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
-                                        if value.translation.width < -50 {
-                                            isShowingTimestamps = true
-                                            dragOffset = -80
-                                        } else {
-                                            isShowingTimestamps = false
-                                            dragOffset = 0
-                                        }
-                                    }
-                                }
-                        )
                     }
                 }
                 
@@ -122,7 +100,7 @@ private struct MorphingHeaderView: View {
     }
     
     private var headerHeight: CGFloat {
-        isScrolled ? 44 : 96
+        isScrolled ? 44 : 76
     }
     
     private var titleScale: CGFloat {
@@ -155,7 +133,7 @@ private struct MorphingHeaderView: View {
                     .fill(Color.fplAppBackground)
                     .frame(height: headerHeight)
                 
-                HStack {
+                HStack(alignment: .bottom) {
                     // Title
                     Text(title)
                         .font(titleFont)
@@ -164,6 +142,18 @@ private struct MorphingHeaderView: View {
                         .animation(.spring(response: 0.3, dampingFraction: 0.8), value: isScrolled)
                     
                     Spacer()
+                    
+                    // Filter button
+                    Button(action: {
+                        // Add filter action here
+                    }) {
+                        Image(systemName: "line.3.horizontal.decrease.circle")
+                            .font(accountButtonFont)
+                            .foregroundColor(.fplText)
+                    }
+                    .scaleEffect(accountButtonScale)
+                    .animation(.spring(response: 0.3, dampingFraction: 0.8), value: isScrolled)
+                    .padding(.bottom, 4)
                     
                     // Account button
                     Button(action: {
@@ -175,8 +165,10 @@ private struct MorphingHeaderView: View {
                     }
                     .scaleEffect(accountButtonScale)
                     .animation(.spring(response: 0.3, dampingFraction: 0.8), value: isScrolled)
+                    .padding(.bottom, 4)
                 }
                 .padding(.horizontal, 20)
+                .padding(.bottom, 8)
                 .frame(height: headerHeight)
             }
         }

@@ -10,14 +10,13 @@ import SwiftUI
 struct NotificationCardView: View {
     let notification: FPLNotification
     @Binding var isShowingTimestamps: Bool
-    @Binding var dragOffset: CGFloat
     @State private var isPressed = false
     
     var body: some View {
         ZStack {
             // Main card content
             HStack(spacing: 8) {
-                // Left side: Player details (with small badge inline) - pushed to left edge
+                // Left side: Player details - pushed to left edge
                 VStack(alignment: .leading, spacing: 6) {
                     playerInfoView
                     badgesView
@@ -26,11 +25,11 @@ struct NotificationCardView: View {
                 
                 Spacer()
                 
-                // Right side: Points/Price and category - pushed to right edge
+                // Right side: Points/Price/Status and category - pushed to right edge
                 VStack(alignment: .trailing, spacing: 2) {
                     if notification.type == .priceChanges {
-                        // Price change display - just arrow and text
-                        VStack(alignment: .trailing, spacing: 4) {
+                        // Price change display - arrow and text side by side
+                        HStack(spacing: 4) {
                             let priceChange = notification.priceChange ?? 0.0
                             
                             Image(systemName: priceChange > 0 ? "arrow.up.circle.fill" : "arrow.down.circle.fill")
@@ -42,6 +41,25 @@ struct NotificationCardView: View {
                                 .font(.caption)
                                 .fontWeight(.bold)
                                 .foregroundColor(.fplText)
+                        }
+                    } else if notification.type == .statusChanges {
+                        // Status change display - icon and text right aligned
+                        VStack(alignment: .trailing, spacing: 4) {
+                            let currentStatus = notification.playerStatus ?? "Unknown"
+                            let statusText = FPLNotification.statusDisplayText(for: currentStatus)
+                            let statusColor = FPLNotification.statusColor(for: currentStatus)
+                            let statusIcon = FPLNotification.statusIcon(for: currentStatus)
+                            
+                            HStack(spacing: 4) {
+                                Image(systemName: statusIcon)
+                                    .font(.system(size: 15))
+                                    .foregroundColor(statusColor)
+                                
+                                Text(statusText)
+                                    .font(.caption)
+                                    .fontWeight(.bold)
+                                    .foregroundColor(.fplText)
+                            }
                         }
                     } else {
                         // Gameplay points display
@@ -77,6 +95,7 @@ struct NotificationCardView: View {
                             .stroke(Color.fplCardBorder, lineWidth: 1)
                     )
             )
+            .fixedSize(horizontal: false, vertical: true)
             .shadow(
                 color: Color.black.opacity(0.05), 
                 radius: 2, 
@@ -102,7 +121,6 @@ struct NotificationCardView: View {
                 }
                 .clipShape(RoundedRectangle(cornerRadius: 16))
             )
-            .offset(x: dragOffset)
             .onTapGesture {
                 withAnimation(.easeInOut(duration: 0.1)) {
                     isPressed = true
@@ -114,26 +132,7 @@ struct NotificationCardView: View {
                 }
             }
             
-            // Timestamp overlay - appears underneath when swiped
-            if isShowingTimestamps {
-                HStack {
-                    Spacer()
-                    
-                    VStack(alignment: .trailing, spacing: 2) {
-                        Text(formatTimestamp(notification.timestamp))
-                            .font(.caption)
-                            .fontWeight(.medium)
-                            .foregroundColor(.secondary)
-                    }
-                    .padding(.trailing, 4) // Align with main card's right edge
-                }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .background(
-                    RoundedRectangle(cornerRadius: 16)
-                        .fill(Color.fplCard.opacity(0.9))
-                )
-                .offset(x: dragOffset)
-            }
+            
         }
         .scaleEffect(isPressed ? 0.98 : 1.0)
         .animation(.easeInOut(duration: 0.1), value: isPressed)
@@ -173,6 +172,9 @@ struct NotificationCardView: View {
     private func getChangeValue() -> Double {
         if notification.type == .priceChanges {
             return notification.priceChange ?? 0.0
+        } else if notification.type == .statusChanges {
+            // For status changes, use a neutral value for gradient
+            return 0.0
         } else {
             return Double(notification.pointsChange)
         }
@@ -230,6 +232,24 @@ struct NotificationCardView: View {
                         .font(.caption2)
                         .foregroundColor(.gray)
                 }
+            } else if notification.type == .statusChanges {
+                // News text for status change notifications - auto-expand with 50% width threshold
+                if let newsText = notification.newsText, !newsText.isEmpty {
+                    Text(newsText)
+                        .font(.caption2)
+                        .fontWeight(.medium)
+                        .foregroundColor(.fplText)
+                        .multilineTextAlignment(.leading)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .fixedSize(horizontal: false, vertical: true)
+                } else {
+                    Text("No news available")
+                        .font(.caption2)
+                        .fontWeight(.medium)
+                        .foregroundColor(.gray)
+                        .italic()
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
             } else {
                 // Gameplay points information
                 Text("\(notification.gameweekPoints) pts")
@@ -281,7 +301,6 @@ struct TSBadge: View {
     }
 }
 
-
 struct OwnedBadge: View {
     var body: some View {
         Image(systemName: "star.square.fill")
@@ -290,15 +309,13 @@ struct OwnedBadge: View {
     }
 }
 
-
 #Preview {
     VStack(spacing: 16) {
         // Show first 4 realistic notifications
         ForEach(Array(RealisticNotificationData.sampleNotifications.prefix(4))) { notification in
             NotificationCardView(
                 notification: notification,
-                isShowingTimestamps: .constant(false),
-                dragOffset: .constant(0)
+                isShowingTimestamps: .constant(false)
             )
         }
     }

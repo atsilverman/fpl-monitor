@@ -479,6 +479,70 @@ python tests/backend/test_supabase_connection.py
 python tests/backend/test_local_endpoints.py
 ```
 
+## 🛠️ Scripts & Tools
+
+### Core Production Scripts
+
+#### `backend/services/fpl_monitor_enhanced_production.py`
+**Purpose**: Main production monitoring service
+**Description**: Complete monitoring service with dynamic modes, news tracking, and Supabase integration
+**Usage**: Runs 24/7 on production server via systemd
+**Features**: Live performance, price changes, status/news updates, final bonus monitoring
+
+#### `start_production_monitor.py`
+**Purpose**: Local startup script for production monitoring
+**Description**: Simple entry point to start the production monitoring service locally
+**Usage**: `python3 start_production_monitor.py`
+**Features**: Easy local testing and development
+
+### Deployment & Management
+
+#### `scripts/deployment/deploy_monitoring.py`
+**Purpose**: Deploy monitoring service to DigitalOcean droplet
+**Description**: Automated deployment script that sets up systemd service and configuration
+**Usage**: `python3 scripts/deployment/deploy_monitoring.py`
+**Features**: One-command deployment, service configuration, health checks
+
+#### `scripts/tools/check_production_status.py`
+**Purpose**: Monitor production service health and activity
+**Description**: Comprehensive status checker that verifies service health, database activity, and API responsiveness
+**Usage**: `python3 scripts/tools/check_production_status.py`
+**Features**: Supabase activity check, API health check, monitoring status verification
+
+### Development & Testing Tools
+
+#### `scripts/tools/local_proxy_https.py`
+**Purpose**: Local HTTPS proxy for iOS development
+**Description**: Creates secure local proxy for testing iOS app with production API
+**Usage**: `python3 scripts/tools/local_proxy_https.py`
+**Features**: HTTPS termination, local development support
+
+#### `scripts/tools/test_push_notifications.py`
+**Purpose**: Test push notification functionality
+**Description**: Send test push notifications to verify APNS integration
+**Usage**: `python3 scripts/tools/test_push_notifications.py`
+**Features**: APNS testing, notification validation
+
+#### `scripts/maintenance/file_organizer.py`
+**Purpose**: File organization utility
+**Description**: Helps organize and clean up project files
+**Usage**: `python3 scripts/maintenance/file_organizer.py`
+**Features**: File cleanup, organization, maintenance
+
+### Testing Scripts
+
+#### `tests/backend/test_*.py`
+**Purpose**: Backend service testing
+**Description**: Comprehensive test suite for monitoring service components
+**Usage**: `python -m pytest tests/backend/`
+**Features**: Database connection tests, API endpoint tests, integration tests
+
+#### `tests/integration/test_mobile_integration.py`
+**Purpose**: Mobile app integration testing
+**Description**: End-to-end testing of mobile app with backend services
+**Usage**: `python -m pytest tests/integration/`
+**Features**: Full integration testing, mobile app validation
+
 ## 📚 Additional Documentation
 
 - **API Documentation**: `docs/API.md`

@@ -52,6 +52,8 @@ CREATE TABLE players (
     form DECIMAL(4,1),
     selected_by_percent DECIMAL(5,2),
     status VARCHAR(10),
+    news TEXT,                      -- Player news/updates from FPL API
+    news_added TIMESTAMP,           -- When news was added
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );

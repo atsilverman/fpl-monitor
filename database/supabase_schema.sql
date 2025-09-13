@@ -107,6 +107,8 @@ CREATE TABLE public.players (
     form DECIMAL(4,1),
     selected_by_percent DECIMAL(5,2),
     status VARCHAR(10),
+    news TEXT,                      -- Player news/updates from FPL API
+    news_added TIMESTAMP WITH TIME ZONE, -- When news was added
     photo_url TEXT,                  -- Player photo URL
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
